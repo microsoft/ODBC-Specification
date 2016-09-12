@@ -1,4 +1,4 @@
-ODBC 4.0
+ODBC 4.0 Specification
 =
 
 #1 Overview
@@ -48,7 +48,6 @@ The convenience to existing clients of representing hierarchical data through a 
 ODBC 4.0 is extended to support common features across all types of data sources, as well as specific new features to support new schema concepts.
 
 #3.1 Private Drivers
----------------
 
 Drivers registered through the ODBC setup utility are available to all applications. All applications using the driver use the same version of the driver.
 
@@ -123,8 +122,8 @@ For an OAuth 1.0, the output connection string would also ask for Auth\_Realm an
 
 The application next calls SQLBrowseConnect with a connection string containing the redirect uri, the client ID, and client secret, along with scope, realm, and token secret, as appropriate:
 
-> "Auth\_BaseRedirectUri=https://abc.com/auth;Auth\_Client\_ID=myapp;Auth\_Client\_Secret=xyz;
-> Auth\_Scope=ZZZ"
+> "Auth\_BaseRedirectUri=https://abc.com/auth;Auth_Client_ID=myapp;Auth_Client_Secret=xyz;
+> Auth_Scope=ZZZ"
 
 The driver responds with a connection string containing the authorization url and requesting the final redirect uri. For the best client UI experience, the output connection string should also include suggested window height and width (in pixels) for the browser window:
 
@@ -196,7 +195,7 @@ In a [Web Authorization Flow](#web-authorization), the application may have to p
 
 Applications can determine whether or not the access token has expired by calling SQLGetConnectAttr with the SQL\_ATTR\_CONNECTION\_DEAD attribute. As this connection attribute is also used by the Driver Manager in connection pooling, getting this attribute is performance critical and the driver SHOULD NOT make a round trip to determine the status of the connection, but should return SQL\_CD\_TRUE if it has previously determined that the connection is dead.
 
-If [SQL\_ATTR\_REFRESH\_CONNECTION](#sql_attr_-credentials) is SQL\_REFRESH\_MANUAL, or the driver is unable to refresh the token, attempting to call an operation that requires a connection after the access token has expired returns SQL\_ERROR with a SQLState value of 08006 (Connection Failure). Applications can attempt to refresh the connection by calling SQLSetConnectAttr with [SQL\_ATTR\_REFRESH\_CONNECTION](#sql-syntax-support) and, if successful, retry the failed operation. If refreshing the connection fails, the application must close the connection (resulting in any dependent statement or descriptor handles being implicitly freed) and start over.
+If [SQL\_ATTR\_REFRESH\_CONNECTION](#sql_attr_-credentials) is SQL\_REFRESH\_MANUAL, or the driver is unable to refresh the token, attempting to call an operation that requires a connection after the access token has expired returns SQL\_ERROR with a SQLState value of 08006 (Connection Failure). Applications can attempt to refresh the connection by calling SQLSetConnectAttr with SQL\_ATTR\_REFRESH\_CONNECTION and, if successful, retry the failed operation. If refreshing the connection fails, the application must close the connection (resulting in any dependent statement or descriptor handles being implicitly freed) and start over.
 
 Issue: should we define more specific subcodes/diag fields for expired token? Note that, in many cases, the service won’t know that the connection issue was an expired token versus some other connection failure, so we’d still have to allow fall-back to the general ConnectionFailure.
 
@@ -234,7 +233,7 @@ Drivers that support ANSI SQL syntax must follow SQL semantics for that syntax o
 
 ###3.3.2 String escaping
 
-> As per ANSI, a single-quote character within a string literal is escaped by a single-quote character. Drivers must translate double-single quotes to whatever is the native syntax for an escaped single quote.
+As per ANSI, a single-quote character within a string literal is escaped by a single-quote character. Drivers must translate double-single quotes to whatever is the native syntax for an escaped single quote.
 
 ###3.3.3 Nesting Escape Clauses
 
@@ -342,19 +341,19 @@ The optional *ODBC-limit-escape* clause immediately follows the *order-by-clause
 
 For example:
 
-Select \* from table {limit 10}
+>Select \* from table {limit 10}
 
 would fetch the first ten rows of the table, while
 
-Select \* from table {limit 20,10}
+>Select \* from table {limit 20,10}
 
 would skip twenty rows and then fetch the next ten.
 
 Drivers advertise support for this escape clause through the new SQL\_LIMIT\_ESCAPE\_CLAUSE *InfoType*. The value of the SQL\_LIMIT\_ESCAPE\_CLAUSE is a bitmask made up of the following values:
 
-> SQL\_LC\_NONE = 0 – the driver has no support for the limit escape clause
-> SQL\_LC\_TAKE = 1 – the driver supports only the take portion of the limit escape clause
-> SQL\_LC\_TAKE\_AND\_SKIP = 3 – the driver supports both take and skip in the limit escape clause
+* **SQL\_LC\_NONE** = 0 – the driver has no support for the limit escape clause
+* **SQL\_LC\_TAKE** = 1 – the driver supports only the take portion of the limit escape clause
+* **SQL\_LC\_TAKE\_AND\_SKIP** = 3 – the driver supports both take and skip in the limit escape clause
 
 ####3.3.5.2 Selecting Inserted/Updated/Deleted Values
 
@@ -365,15 +364,15 @@ The *ODBC-return-escape* clause returns a table containing information from inse
 
 For example, the following statement returns a table containing the id and total of a newly inserted row:
 
-{return id from (INSERT INTO table(amount,total) VALUES (2,3))}
+> {return id from (INSERT INTO table(amount,total) VALUES (2,3))}
 
 The following statement retrieves the new total of all rows with ids above 10 that were updated:
 
-{return total from (UPDATE table SET {amount=amount\*10} WHERE id &gt; 10)}
+> {return total from (UPDATE table SET {amount=amount\*10} WHERE id &gt; 10)}
 
 The following statement retrieves the ids of all rows with totals above 10 that were deleted:
 
-{return id from (DELETE FROM table WHERE total &gt; 10)}
+> {return id from (DELETE FROM table WHERE total &gt; 10)}
 
 Drivers advertise support for this escape clause through the new SQL\_RETURN\_ESCAPE\_CLAUSE *InfoType* whose value is a bitmask made up of the following values. Note that supporting an arbitrary column for an expression implies supporting the id for that expression.
 
@@ -425,14 +424,11 @@ The optional list of sql-identifiers provide a hint to the driver as to the spec
 
 The following are added to the list of ODBC reserved words:
 
-ARRAY
+* ARRAY
+* MULTISET
+* ROW
 
-MULTISET
-
-ROW
-
-String Format
--------------
+##3.4 String Format
 
 A new SQLCHAR\*-valued descriptor field, SQL\_DESC\_MIME\_TYPE, is added to \[ALL\] descriptors to specify the format of a field or parameter whose SQL\_DESC\_TYPE specifies a string or binary type. The value of this descriptor field is the mime type of the data (i.e., application/json, application/xml,…).
 
@@ -537,11 +533,9 @@ Clients can bind parameters using SQL\_VARIANT\_TYPE. Parameters that are bound 
 
 The new SQL\_ATTR\_TYPE\_EXCEPTION\_BEHAVIOR is a SQL\_USMALLINT value that allows the client to control how type exceptions occur when retrieving values.
 
-**SQL\_TE\_ERROR** – (Default) Return an error if the type of the data value is incompatible with the bound type.
-
-**SQL\_TE\_CONTINUE** – Set the *str\_type\_or\_ind\_ptr* value to SQL\_TYPE\_EXCEPTION and continue, or error if *str\_type\_or\_ind\_ptr* is a null pointer.
-
-**SQL\_TE\_REPORT** – Return SQL\_METADATA\_CHANGED and allow the application to rebind the column or retrieve the column using SQLGetData or SQLGetNestedHandle, as appropriate.
+* **SQL\_TE\_ERROR** – (Default) Return an error if the type of the data value is incompatible with the bound type.
+* **SQL\_TE\_CONTINUE** – Set the *str\_type\_or\_ind\_ptr* value to SQL\_TYPE\_EXCEPTION and continue, or error if *str\_type\_or\_ind\_ptr* is a null pointer.
+* **SQL\_TE\_REPORT** – Return SQL\_METADATA\_CHANGED and allow the application to rebind the column or retrieve the column using SQLGetData or SQLGetNestedHandle, as appropriate.
 
 ###3.7.4 Write Extensions for Variable Typed Columns
 
@@ -565,9 +559,8 @@ When the driver returns SQL\_MORE\_DATA, the application calls SQLNextColumn in 
 
 The new SQL\_ATTR\_LENGTH\_EXCEPTION\_BEHAVIOR is a SQL\_USMALLINT value that allows the client to control how binary and string overflows are handled when retrieving values.
 
-**SQL\_LE\_CONTINUE** – (Default) Set the *str\_type\_or\_ind\_ptr* value for the column to the total length available, if known, otherwise SQL\_NO\_TOTAL. When the driver completes fetching the row it will return SQL\_SUCCESS\_WITH\_INFO with a SQLSTATE of 01004, String data, right truncated.
-
-**SQL\_LE\_REPORT** – Return SQL\_MORE\_DATA from the fetch operation and allow the application to retrieve the remainder of the column using SQLGetData.
+* **SQL\_LE\_CONTINUE** – (Default) Set the *str\_type\_or\_ind\_ptr* value for the column to the total length available, if known, otherwise SQL\_NO\_TOTAL. When the driver completes fetching the row it will return SQL\_SUCCESS\_WITH\_INFO with a SQLSTATE of 01004, String data, right truncated.
+* **SQL\_LE\_REPORT** – Return SQL\_MORE\_DATA from the fetch operation and allow the application to retrieve the remainder of the column using SQLGetData.
 
 ##3.9 Dynamic Columns
 
@@ -696,7 +689,7 @@ Referencing a structured column by name references the entire structured column.
 
 For example:
 
-Select EmpID, Address from Employee
+> Select EmpID, Address from Employee
 
 would return a result with two columns; one named “EmpID” containing the employee ID, and one named “Address” containing the address as a structured column.
 
@@ -704,7 +697,7 @@ A subset of the properties for a structural type can be selected by following th
 
 For example:
 
-Select EmpID, Address(Region,Country) from Employee
+> Select EmpID, Address(Region,Country) from Employee
 
 would return a result with two columns; one named “EmpID” containing the employee ID, and one named “Address” containing only the Region and Country columns from the Address column. This is equivalent to the following query:
 
@@ -719,7 +712,7 @@ Individual members of a structured column may be referenced as the name of the s
 
 For example:
 
-Select EmpID, Address.Region, Address.Country from Employee
+> Select EmpID, Address.Region, Address.Country from Employee
 
 would return a result with three columns; one named “EmpID” containing the employee id, one named “Address.Region” containing the region member of the employee’s address, and one named “Address.Country” containing the country member from the employee’s address.
 
@@ -734,11 +727,9 @@ For structured columns with named types, the value of the DATA\_TYPE and SQL\_DA
 
 Additional descriptor fields can be used to describe UDTs in results:
 
-SQL\_DESC\_USER\_DEFINED\_TYPE\_CATALOG (1026)
-
-SQL\_DESC\_USER\_DEFINED\_TYPE\_SCHEMA (1027)
-
-SQL\_DESC\_USER\_DEFINED\_TYPE\_NAME (1028)
+* SQL\_DESC\_USER\_DEFINED\_TYPE\_CATALOG
+* SQL\_DESC\_USER\_DEFINED\_TYPE\_SCHEMA
+* SQL\_DESC\_USER\_DEFINED\_TYPE\_NAME
 
 Note: ANSI also defines USER\_DEFINED\_TYPE\_CODE (1045) with a value of “DISTINCT” (1) or “STRUCTURED” (2).
 
@@ -750,11 +741,11 @@ Calling GetNestedHandle for an unnamed structured type returns a statement handl
 
 Clients may specify the value for a member of a structured column in an INSERT or UPDATE statement by referencing the member directly. For Example:
 
-UPDATE Employee SET FullName.FirstName = 'John', FullName.LastName='Smith'
+> UPDATE Employee SET FullName.FirstName = 'John', FullName.LastName='Smith'
 
 Dynamic columns can similarly be added to structured columns defined as open, for example:
 
-UPDATE Employee SET FullName.Foo = 'Bar'
+> UPDATE Employee SET FullName.Foo = 'Bar'
 
 Alternatively, clients may specify the value of a structured column in an INSERT or UPDATE statement using the *row-value-constructor* defined as follows:
 
@@ -763,19 +754,19 @@ ROW *left-paren value-expression* \[*comma* *value-expression*\]… *right-paren
 
 For example:
 
-UPDATE Employee SET FullName = ROW('John', 'Smith')
+> UPDATE Employee SET FullName = ROW('John', 'Smith')
 
 All members must be specified in the order they occur in the definition of the structured type being updated. To update a subset of properties, a column-list can be added to the structured column:
 
-UPDATE Employee SET FullName(FirstName, LastName) = ROW('John', 'Smith')
+> UPDATE Employee SET FullName(FirstName, LastName) = ROW('John', 'Smith')
 
 In this case, the order of the members of the row-value-constructor must match the order of columns in the column-list applied to the structured column.
 
 Appending a column-list to the structured column can also be used to add dynamic columns to the structured column, for example, the following statements add a “Foo” member to the FullName column:
 
-UPDATE Employee SET FullName(Foo) = ROW('Bar')
+> UPDATE Employee SET FullName(Foo) = ROW('Bar')
 
-UPDATE Employee SET FullName(FirstName, Foo) = ROW('John', 'Bar')
+> UPDATE Employee SET FullName(FirstName, Foo) = ROW('John', 'Bar')
 
 Side note: ANSI has two forms; one that is prefixed with “ROW” and can have one or more elements, and one that is not prefixed and must have at least two elements.
 
@@ -788,13 +779,13 @@ All members must be specified in the order they occur in the definition of the s
 
 For example:
 
-UPDATE Employee SET FullName = FULLNAME('John','Smith')
+> UPDATE Employee SET FullName = FULLNAME('John','Smith')
 
 Clients may update an individual member within a structured column by referencing that member in the set list of an update statement.
 
 For example:
 
-UPDATE Employee SET Address.Country = ‘USA'
+> UPDATE Employee SET Address.Country = ‘USA'
 
 ####3.10.4.1 Passing structured parameters at execute time
 
@@ -809,12 +800,9 @@ To pass a structured parameter at execute time, the application:
 -   ParameterType is SQL\_ROW or SQL\_UDT (sets SQL\_DESC\_TYPE/SQL\_DESC\_CONCISE\_TYPE in IPD)
 
     -   For SQL\_UDT, must set descriptor fields to specify:
-
-        -   USER\_DEFINED\_TYPE\_CATALOG (1026)
-
-        -   USER\_DEFINED\_TYPE\_NAME (1028)
-
-        -   USER\_DEFINED\_TYPE\_SCHEMA (1027)
+        -   USER\_DEFINED\_TYPE\_CATALOG
+        -   USER\_DEFINED\_TYPE\_NAME
+        -   USER\_DEFINED\_TYPE\_SCHEMA
 
 -   ParameterValuePtr is set to a 32bit value identifying the parameter (passed back to the app from SQLParamData when data is needed for this parameter)
 
@@ -856,7 +844,7 @@ Structured types may be defined using the CREATE TYPE escape clause, as follows:
 
 For example:
 
-{CREATE OPEN TYPE FULLNAME(Firstname varchar(25), LastName varchar (25))}
+> {CREATE OPEN TYPE FULLNAME(Firstname varchar(25), LastName varchar (25))}
 
 These types can be enumerated through the [SQLStructuredTypes](#sqlstructuredtypes) schema function. Their structure is described through [SQLStructuredTypeColumns](#sqlstructuredtypecolumns).
 
@@ -864,7 +852,7 @@ The CREATE statement can include the new [*ODBC-open-escape*](#open-escape-claus
 
 Structured columns can be created within a table using a named structural type or by using the ROW clause:
 
-CREATE TABLE Employees(FullName ROW(FirstName varchar(25),
+> CREATE TABLE Employees(FullName ROW(FirstName varchar(25),
 LastName varchar(25)), Address ADDRESS)
 
 ##3.11 Collection-valued Columns
@@ -903,7 +891,7 @@ where *numeric-value-expression* yields an integer greater than zero and less th
 
 For example:
 
-Select EmpID, PhoneNumbers\[1\] from Employee
+> Select EmpID, PhoneNumbers\[1\] from Employee
 
 returns the employee ids along with their first phone number.
 
@@ -955,7 +943,7 @@ Ordered collection-valued columns are defined using the array column type:
 
 For example:
 
-CREATE TABLE *Employee(FullName FULLNAME, Address ADDRESS, PhoneNumbers varchar(25) ARRAY\[10\] ) *
+> CREATE TABLE *Employee(FullName FULLNAME, Address ADDRESS, PhoneNumbers varchar(25) ARRAY\[10\] ) *
 
 Unordered collection-valued columns are defined using the MULTISET column type :
 
@@ -965,7 +953,7 @@ Unordered collection-valued columns are defined using the MULTISET column type :
 
 For example:
 
-CREATE TABLE *Employee(FullName FULLNAME, Address ADDRESS, PhoneNumbers varchar(25) MULTISET ) *
+> CREATE TABLE *Employee(FullName FULLNAME, Address ADDRESS, PhoneNumbers varchar(25) MULTISET ) *
 
 ####3.11.5.1 Passing collection-valued parameters at execute time
 
@@ -982,11 +970,8 @@ To pass an array-valued parameter at execute time, the application:
     -   Sets the SQL\_DESC\_SUBTYPE of the IPD to the type of the array or multiset, if known
 
     -   For SQL\_UDT sets descriptor fields to specify:
-
         -   USER\_DEFINED\_TYPE\_CATALOG
-
         -   USER\_DEFINED\_TYPE\_SCHEMA
-
         -   USER\_DEFINED\_TYPE\_NAME
 
 -   ParameterValuePtr is set to a 32bit value identifying the parameter (passed back to the app from SQLParamData when data is needed for this parameter)
@@ -1072,9 +1057,9 @@ The following functions are added in ODBC 4.0.
 
 In order to retrieve the column of data currently available to be read, the application can call SQLNextColumn.
 
-SQLRETURN SQLNextColumn(
-SQLHSTMT StatementHandle,
-SQLUSMALLINT\* Col\_or\_Param\_Num);
+> SQLRETURN SQLNextColumn( 
+ SQLHSTMT StatementHandle,
+ SQLUSMALLINT\* Col\_or\_Param\_Num);
 
 SQLNextColumn can be called only after SQLFetch or SQLFetchScroll returns SQL\_DATA\_AVAILABLE, and until SQLNextColumn returns SQL\_SUCCESS or SQL\_SUCCESS\_WITH\_INFO.
 
@@ -1102,7 +1087,7 @@ Calling SQLNextColumn with a null pointer for *Col\_or\_Param\_Num* skips the re
 
 SQLGetNestedHandle is called in to retrieve a handle for reading or writing structured or collection-valued columns and parameters.
 
-SQLRETURN SQLGetNestedHandle(
+>SQLRETURN SQLGetNestedHandle(
 SQLHSTMT ParentStatementHandle,
 SQLUSMALLINT Col\_or\_Param\_Num,
 SQLHSTMT\* OutputChildStatementHandle);
@@ -1174,6 +1159,7 @@ TODO: describe output parameters. Do we need a new InputOutputType, or do we use
 SQLStructuredTypes enumerates named structural types.
 
 SQLRETURN SQLStructuredTypes(
+
      SQLHSTMT StatementHandle,
 
      SQLCHAR \* CatalogName,
