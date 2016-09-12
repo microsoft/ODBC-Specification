@@ -18,3 +18,4 @@ Contributions to the Microsoft ODBC Specification are welcome and encouraged.
 
 
 [contribution-agreement]: https://github.com/Microsoft/ODBC-Specification/blob/master/contribution-agreement.md
+
