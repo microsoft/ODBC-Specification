@@ -15,7 +15,7 @@ Microsoft ODBC version 4.0 is a new version of ODBC for modern data sources that
 ## Contributing to Microsoft ODBC Specification
 Contributions to the Microsoft ODBC Specification are welcome and encouraged.
 
-By participating in this project you agree to abide by the terms of the [Contribution Agreement][contribution-agreement].
+**IMPORTANT** By participating in this project you agree to abide by the terms of the [Contribution Agreement][contribution-agreement].
 
 
 [contribution-agreement]: https://github.com/Microsoft/odbc-specification/contribution-agreement.md
