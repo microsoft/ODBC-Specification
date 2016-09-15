@@ -353,22 +353,32 @@ Drivers advertise support for this escape clause through the new `SQL_RETURN_ESC
 | `SQL_RC_DELETE_ID`  | The driver supports getting primary key columns of inserted rows                    |
 | `SQL_RC_DELETE_ANY` | The driver supports the driver supports getting arbitrary columns from deleted rows |
 
-####3.3.5.3 Native Syntax
+####3.3.5.3 Returning Clause
 
-ODBC clients use the `SQL_NOSCAN` statement attribute to specify that the command text is in a native syntax and should not be parsed by the driver. In this case, the entire statement must be in a native syntax and escape clauses must not be used as the driver will not scan the statement but instead pass it directly to the server.
+The *ODBC-returning-escape* clause enables clients to specify the type of a result, and can be used to return results as a JSON-formatted string:
 
-The *ODBC-native-escape* clause enables clients to embed native syntax within a SQL92 statement:
-
-<span id="_MailEndCompose" class="anchor"></span>*ODBC-native-escape* ::=
-     *ODBC-esc-initiator* native (*command-text*) \[*returning-clause*\] *ODBC-esc-terminator*
-
-*returning-clause* ::= RETURNING (*type* \[, *type*\]…) \[*json-format-clause*\]
+*ODBC-returning-escape* ::= RETURNING (*type* \[, *type*\]…) \[*json-format-clause*\]
 
 *json-format-clause* ::= FORMAT JSON \[ENCODING {UTF8 | UTF16 | UTF32}\]
 
 *type* ::= {*data-type* | ROW ( *field-definition* \[, *field-definition*\]… ) } \[ARRAY | MULTISET\]
 
 *field-definition* ::= *field-name type*
+
+If *json-format-clause* is specified, then *type* must be a string or binary type. 
+
+If ENCODING is specified, then *type* must be a binary type.
+
+Drivers advertise support for this escape clause through the new `SQL_RETURNING_ESCAPE_CLAUSE` *InfoType* whose value is the character string “`Y`” if the escape clause is supported; “`N`” otherwise.
+
+####3.3.5.4 Native Syntax
+
+ODBC clients use the `SQL_NOSCAN` statement attribute to specify that the command text is in a native syntax and should not be parsed by the driver. In this case, the entire statement must be in a native syntax and escape clauses must not be used as the driver will not scan the statement but instead pass it directly to the server.
+
+The *ODBC-native-escape* clause enables clients to embed native syntax within a SQL92 statement:
+
+*ODBC-native-escape* ::=
+     *ODBC-esc-initiator* native (*command-text*) \[*returning-clause*\] *ODBC-esc-terminator*
 
 Where *command-text* is a textual query in the native language of the service. Any parenthesis not within single-quotation marks within command-text must be balanced.
 
@@ -378,7 +388,7 @@ Single question marks within the native command not within single-quotation mark
 
 Drivers advertise support for this escape clause through the new `SQL_NATIVE_ESCAPE_CLAUSE` *InfoType* whose value is the character string “`Y`” if the escape clause is supported; “`N`” otherwise.
 
-####3.3.5.4 Refresh Schema
+####3.3.5.5 Refresh Schema
 
 ODBC adds a new *ODBC-refresh-schema-escape* clause to enable clients to request that schema be refreshed, defined as follows:
 
