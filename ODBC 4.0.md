@@ -343,14 +343,14 @@ The following statement retrieves the ids of all rows with totals above 10 that 
 
 Drivers advertise support for this escape clause through the new `SQL_RETURN_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values. Note that supporting an arbitrary column for an expression implies supporting the id for that expression.
 
-| Value             | Description                                                                         |
-|-------------------|-------------------------------------------------------------------------------------|
+| Value               | Description                                                                         |
+|---------------------|-------------------------------------------------------------------------------------|
 | `SQL_RC_NONE` = 0   | The driver has no support for the return escape clause                              |
-| `SQL_RC_INSERT_ID`  | The driver supports getting the ID of inserted rows                                 |
+| `SQL_RC_INSERT_ID`  | The driver supports getting primary key columns of inserted rows                    |
 | `SQL_RC_INSERT_ANY` | The driver supports getting arbitrary columns from inserted rows                    |
-| `SQL_RC_UPDATE_ID`  | The driver supports getting the ID of inserted updated rows                         |
+| `SQL_RC_UPDATE_ID`  | The driver supports getting primary key columns of updated rows                     |
 | `SQL_RC_UPDATE_ANY` | The driver supports the driver supports getting arbitrary columns from updated rows |
-| `SQL_RC_DELETE_ID`  | The driver supports getting the ID of inserted rows                                 |
+| `SQL_RC_DELETE_ID`  | The driver supports getting primary key columns of inserted rows                    |
 | `SQL_RC_DELETE_ANY` | The driver supports the driver supports getting arbitrary columns from deleted rows |
 
 ####3.3.5.3 Native Syntax
@@ -818,7 +818,6 @@ Structured columns can be created within a table using a named structural type o
 LastName varchar(25)), Address ADDRESS)
 
 ##3.11 Collection-valued Columns
--------------------------
 
 ODBC adds support for collection-valued columns.
 
@@ -836,7 +835,7 @@ For ordered array-valued columns, the value of the `DATA_TYPE` attributes is `SQ
 
 The remaining columns, including the `SQL_DATA_TYPE`, describe the type of the element within the collection.
 
-Additionally, clients may get the type of a collection-valued column by passing the name of the collection-valued column appended with “/$element” (recursively, for nested arrays), as the column name in SQLColumns/SQLTypeColumns.
+Additionally, clients may get the type of a collection-valued column by passing the name of the collection-valued column appended with “[]” (repeated, for nested arrays), as the column name in SQLColumns/SQLTypeColumns.
 
 ###3.11.2 Query Extensions for Collections
 
@@ -995,7 +994,7 @@ ODBC 4.0 drivers support ODBC 3.x clients by defaulting to a relational view for
 Certain ODBC 4.0 behavior may still available to an application that declares an ODBC version of 3.x, but it must be explicitly opted into by the application, for example, by setting new attributes.
 
 ##5.1 ODBC 3.x Clients
-Clients that specify a `SQL_ATTR_ODBC_VERSION` environment attribute value representing ODBC 2.x or 3.x can still use escape clauses, connection keywords, Infotypes, and attributes specified in this document, as supported by the driver. Where available, drivers should query the corresponding InfoType to ensure support or be prepared for corresponding errors.
+Clients that specify a `SQL_ATTR_ODBC_VERSION` environment attribute value representing ODBC 2.x or 3.x can still use escape clauses, connection keywords, Infotypes, and attributes specified in this document, as supported by the driver. Where available, clients should query the corresponding InfoType to ensure support or be prepared for corresponding errors.
 
 ODBC 3.0 Clients should not attempt to use `SQL_DATA_AT_FETCH` column bindings against ODBC drivers that report an ODBC 2.x or ODBC 3.x `ODBC_DRIVER_VERSION` InfoType.
 
@@ -1025,11 +1024,11 @@ In addition, if the driver supports `SQL_UDT`, it must:
 ##5.5 ODBC 4.0 Driver Manager
 The ODBC 4.0 Driver Manager will map the following InfoTypes and attributes for 2.x and 3.x drivers:
 
-| **InfoType/Attribute**             |      **Behavior**                                        |
+| **InfoType/Attribute**               |      **Behavior**                                          |
 | `SQL_SCHEMA_INFERENCE`               | If not supported by the driver, SQLGetInfo returns `FALSE` |
 | `SQL_ATTR_DYNAMIC_COLUMNS`           | If not supported by the driver, SQLGetStmtAttr returns `FALSE` and SQLSetStmtAttr  returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02.  |
-| `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` | If not supported by the driver, SQLGetStmtAttr returns returns k and SQLGetStmtAttr with a value other than `SQL_LE_CONTINUE` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented |
-| `SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`   | If not supported by the driver, SQLGetStmtAttr returns returns SQL_TE_ERROR and SQLGetStmtAttr with a value other than `SQL_TE_ERROR` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented  |
+| `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` | If not supported by the driver, SQLGetStmtAttr returns returns `SQL_LE_CONTINUE` and SQLSetStmtAttr with a value other than `SQL_LE_CONTINUE` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented |
+| `SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`   | If not supported by the driver, SQLGetStmtAttr returns returns SQL_TE_ERROR and SQLSetStmtAttr with a value other than `SQL_TE_ERROR` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented  |
 
 #6 New Functions
 The following functions are added in ODBC 4.0.
