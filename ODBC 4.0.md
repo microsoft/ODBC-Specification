@@ -353,17 +353,23 @@ Drivers advertise support for this escape clause through the new `SQL_RETURN_ESC
 | `SQL_RC_DELETE_ID`  | The driver supports getting primary key columns of inserted rows                    |
 | `SQL_RC_DELETE_ANY` | The driver supports the driver supports getting arbitrary columns from deleted rows |
 
-####3.3.5.3 Returning Clause
+####3.3.5.3 Format Clause
 
-The *ODBC-returning-escape* clause enables clients to return results as a JSON-formatted string:
+The *ODBC-format-escape* clause enables clients to return results as a JSON-formatted string:
 
-*ODBC-returning-escape* ::= RETURNING *data-type* *json-format-clause*
+*ODBC-format-escape* ::= RETURNING *data-type* *json-format-clause*
 
 *json-format-clause* ::= FORMAT JSON \[ENCODING {UTF8 | UTF16 | UTF32}\]
 
 For results returned as JSON, *data-type* must be a character string or binary type. If ENCODING is specified, then *data-type* must be a binary type.
 
-Drivers advertise support for this escape clause through the new `SQL_RETURNING_ESCAPE_CLAUSE` *InfoType* whose value is the character string “`Y`” if the escape clause is supported; “`N`” otherwise.
+Drivers advertise support for this escape clause through the new `SQL_FORMAT_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values.
+
+| Value                | Description                                                                         |
+|----------------------|-------------------------------------------------------------------------------------|
+| `SQL_FC_NONE` = 0    | The driver has no support for the format escape clause                              |
+| `SQL_FC_JSON`        | The driver supports returning results as a JSON character string                    |
+| `SQL_FC_JSON_BINARY` | The driver supports returning results as a JSON binary string                       |
 
 ####3.3.5.4 Native Syntax
 
