@@ -327,9 +327,15 @@ Drivers advertise support for this escape clause through the new `SQL_LIMIT_ESCA
 The *ODBC-return-escape* clause returns a table containing information from inserted, updated, and deleted records:
 
 *ODBC-return-escape* ::=
-     *ODBC-esc-initiator* return *select-list* from (*vendor-dml-statement*) *ODBC-esc-terminator*
+     *ODBC-esc-initiator* return *return-specification* from (*vendor-dml-statement*) *ODBC-esc-terminator*
 
-For example, the following statement returns a table containing the id and total of a newly inserted row:
+*return-specification* ::= *rowid* | *select-list* \[, *rowid* | *select-list*\]...
+
+*rowid* ::= *ODBC-esc-initiator* rowid *ODBC-esc-terminator*
+
+If *rowid* is specified in *return-specification*, the driver adds to the select list the column or columns that uniquely identify each row in the target table (typically the set of columns returned for `SQL_BEST_ROWID` in SQLSpecialColumns). These columns can always be used in a select-list or WHERE clause. 
+
+For example, the following s (tatement returns a table containing the columns named "id" and "total" of a newly inserted row:
 
 > {return id from (INSERT INTO table(amount,total) VALUES (2,3))}
 
@@ -337,21 +343,28 @@ The following statement retrieves the new total of all rows with ids above 10 th
 
 > {return total from (UPDATE table SET {amount=amount\*10} WHERE id &gt; 10)}
 
-The following statement retrieves the ids of all rows with totals above 10 that were deleted:
+The following statement retrieves the set of columns that uniquely identify a row in the target table for all rows with totals above 10 that were deleted:
 
-> {return id from (DELETE FROM table WHERE total &gt; 10)}
+> {return {rowid} from (DELETE FROM table WHERE total &gt; 10)}
 
-Drivers advertise support for this escape clause through the new `SQL_RETURN_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values. Note that supporting an arbitrary column for an expression implies supporting the id for that expression.
+If the application requests columns that don't exist in the row, or the client specifies `{rowid}` and no set of columns uniquely identify the row, the driver returns `42S22` Column not found.  
 
-| Value               | Description                                                                         |
-|---------------------|-------------------------------------------------------------------------------------|
-| `SQL_RC_NONE` = 0   | The driver has no support for the return escape clause                              |
-| `SQL_RC_INSERT_ID`  | The driver supports getting primary key columns of inserted rows                    |
-| `SQL_RC_INSERT_ANY` | The driver supports getting arbitrary columns from inserted rows                    |
-| `SQL_RC_UPDATE_ID`  | The driver supports getting primary key columns of updated rows                     |
-| `SQL_RC_UPDATE_ANY` | The driver supports the driver supports getting arbitrary columns from updated rows |
-| `SQL_RC_DELETE_ID`  | The driver supports getting primary key columns of inserted rows                    |
-| `SQL_RC_DELETE_ANY` | The driver supports the driver supports getting arbitrary columns from deleted rows |
+If the application requests columns that exist in the row but the driver is unable to return those columns, the driver should return `HYC00` Optional feature not implemented but may instead return `42S22` Column not found.
+
+Drivers advertise support for this escape clause through the `SQL_RETURN_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values. Note that supporting an arbitrary column for an expression implies supporting primary key fields for that expression.
+
+| Value                 | Description                                                                                     |
+|-----------------------|-------------------------------------------------------------------------------------------------|
+| `SQL_RC_NONE` = 0     | The driver has no support for the return escape clause                                          |
+| `SQL_RC_INSERT_ROWID` | The driver supports the use of `{rowid}` to retrieve a unique set of columns for inserted rows  |
+| `SQL_RC_INSERT_KEY`   | The driver supports getting primary key columns of inserted rows                                |
+| `SQL_RC_INSERT_ANY`   | The driver supports getting arbitrary columns from inserted rows                                |
+| `SQL_RC_UPDATE_ROWID` | The driver supports the use of `{rowid}` to retrieve a unique set of columns for updated rows   |
+| `SQL_RC_UPDATE_KEY`   | The driver supports getting primary key columns of updated rows                                 |
+| `SQL_RC_UPDATE_ANY`   | The driver supports the driver supports getting arbitrary columns from updated rows             |
+| `SQL_RC_DELETE_ROWID` | The driver supports the use of `{rowid}` to retrieve a unique set of columns for deleted rows   |
+| `SQL_RC_DELETE_KEY`   | The driver supports getting primary key columns of inserted rows                                |
+| `SQL_RC_DELETE_ANY`   | The driver supports the driver supports getting arbitrary columns from deleted rows             |
 
 ####3.3.5.3 Format Clause
 
@@ -363,7 +376,7 @@ The *ODBC-format-escape* clause enables clients to return results as a JSON-form
 
 For results returned as JSON, *data-type* must be a character string or binary type. If ENCODING is specified, then *data-type* must be a binary type.
 
-Drivers advertise support for this escape clause through the new `SQL_FORMAT_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values.
+Drivers advertise support for this escape clause through the `SQL_FORMAT_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values.
 
 | Value                | Description                                                                         |
 |----------------------|-------------------------------------------------------------------------------------|
