@@ -355,19 +355,13 @@ Drivers advertise support for this escape clause through the new `SQL_RETURN_ESC
 
 ####3.3.5.3 Returning Clause
 
-The *ODBC-returning-escape* clause enables clients to specify the type of a result, and can be used to return results as a JSON-formatted string:
+The *ODBC-returning-escape* clause enables clients to return results as a JSON-formatted string:
 
-*ODBC-returning-escape* ::= RETURNING (*type* \[, *type*\]…) \[*json-format-clause*\]
+*ODBC-returning-escape* ::= RETURNING *data-type* *json-format-clause*
 
 *json-format-clause* ::= FORMAT JSON \[ENCODING {UTF8 | UTF16 | UTF32}\]
 
-*type* ::= {*data-type* | ROW ( *field-definition* \[, *field-definition*\]… ) } \[ARRAY | MULTISET\]
-
-*field-definition* ::= *field-name type*
-
-If *json-format-clause* is specified, then *type* must be a string or binary type. 
-
-If ENCODING is specified, then *type* must be a binary type.
+For results returned as JSON, *data-type* must be a character string or binary type. If ENCODING is specified, then *data-type* must be a binary type.
 
 Drivers advertise support for this escape clause through the new `SQL_RETURNING_ESCAPE_CLAUSE` *InfoType* whose value is the character string “`Y`” if the escape clause is supported; “`N`” otherwise.
 
@@ -380,9 +374,17 @@ The *ODBC-native-escape* clause enables clients to embed native syntax within a 
 *ODBC-native-escape* ::=
      *ODBC-esc-initiator* native (*command-text*) \[*returning-clause*\] *ODBC-esc-terminator*
 
+*returning-clause* ::= RETURNING (*type* \[, *type*\]…) \[*json-format-clause*\]
+
+*type* ::= {*data-type* | ROW ( *field-definition* \[, *field-definition*\]… ) } \[ARRAY | MULTISET\]
+
+*field-definition* ::= *field-name type*
+
 Where *command-text* is a textual query in the native language of the service. Any parenthesis not within single-quotation marks within command-text must be balanced.
 
 The *returning-clause* is required for retrieving results from the native syntax and when embedding the native syntax in place of a query expression within a standard SQL statement.
+
+If *json-format-clause* is specified, *type* must be a string or binary type.
 
 Single question marks within the native command not within single-quotation marks are interpreted as parameter markers. In order to pass an unquoted question mark as part of the native syntax, the application must double the question mark. The driver will convert unquoted doubled question marks to single question marks when evaluating the native command.
 
