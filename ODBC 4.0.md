@@ -353,9 +353,15 @@ Drivers advertise support for this escape clause through the new `SQL_LIMIT_ESCA
 The *ODBC-return-escape* clause returns a table containing information from inserted, updated, and deleted records:
 
 *ODBC-return-escape* ::=
-     *ODBC-esc-initiator* return *select-list* from (*vendor-dml-statement*) *ODBC-esc-terminator*
+     *ODBC-esc-initiator* return *return-specification* from (*vendor-dml-statement*) *ODBC-esc-terminator*
 
-For example, the following statement returns a table containing the id and total of a newly inserted row:
+*return-specification* ::= *rowid* | *select-list* \[, *rowid* | *select-list*\]...
+
+*rowid* ::= *ODBC-esc-initiator* rowid *ODBC-esc-terminator*
+
+If *rowid* is specified in *return-specification*, the driver adds to the select list the column or columns that uniquely identify each row in the target table (typically the set of columns returned for `SQL_BEST_ROWID` in SQLSpecialColumns). These columns can always be used in a select-list or WHERE clause. 
+
+For example, the following s (tatement returns a table containing the columns named "id" and "total" of a newly inserted row:
 
 > {return id from (INSERT INTO table(amount,total) VALUES (2,3))}
 
@@ -363,34 +369,57 @@ The following statement retrieves the new total of all rows with ids above 10 th
 
 > {return total from (UPDATE table SET {amount=amount\*10} WHERE id &gt; 10)}
 
-The following statement retrieves the ids of all rows with totals above 10 that were deleted:
+The following statement retrieves the set of columns that uniquely identify a row in the target table for all rows with totals above 10 that were deleted:
 
-> {return id from (DELETE FROM table WHERE total &gt; 10)}
+> {return {rowid} from (DELETE FROM table WHERE total &gt; 10)}
 
-Drivers advertise support for this escape clause through the new `SQL_RETURN_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values. Note that supporting an arbitrary column for an expression implies supporting the id for that expression.
+If the application requests columns that don't exist in the row, or the client specifies `{rowid}` and no set of columns uniquely identify the row, the driver returns `42S22` Column not found.  
 
-| Value             | Description                                                                         |
-|-------------------|-------------------------------------------------------------------------------------|
-| `SQL_RC_NONE` = 0   | The driver has no support for the return escape clause                              |
-| `SQL_RC_INSERT_ID`  | The driver supports getting the ID of inserted rows                                 |
-| `SQL_RC_INSERT_ANY` | The driver supports getting arbitrary columns from inserted rows                    |
-| `SQL_RC_UPDATE_ID`  | The driver supports getting the ID of inserted updated rows                         |
-| `SQL_RC_UPDATE_ANY` | The driver supports the driver supports getting arbitrary columns from updated rows |
-| `SQL_RC_DELETE_ID`  | The driver supports getting the ID of inserted rows                                 |
-| `SQL_RC_DELETE_ANY` | The driver supports the driver supports getting arbitrary columns from deleted rows |
+If the application requests columns that exist in the row but the driver is unable to return those columns, the driver should return `HYC00` Optional feature not implemented but may instead return `42S22` Column not found.
 
-####3.3.5.3 Native Syntax
+Drivers advertise support for this escape clause through the `SQL_RETURN_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values. Note that supporting an arbitrary column for an expression implies supporting primary key fields for that expression.
+
+| Value                 | Description                                                                                     |
+|-----------------------|-------------------------------------------------------------------------------------------------|
+| `SQL_RC_NONE` = 0     | The driver has no support for the return escape clause                                          |
+| `SQL_RC_INSERT_ROWID` | The driver supports the use of `{rowid}` to retrieve a unique set of columns for inserted rows  |
+| `SQL_RC_INSERT_KEY`   | The driver supports getting primary key columns of inserted rows                                |
+| `SQL_RC_INSERT_ANY`   | The driver supports getting arbitrary columns from inserted rows                                |
+| `SQL_RC_UPDATE_ROWID` | The driver supports the use of `{rowid}` to retrieve a unique set of columns for updated rows   |
+| `SQL_RC_UPDATE_KEY`   | The driver supports getting primary key columns of updated rows                                 |
+| `SQL_RC_UPDATE_ANY`   | The driver supports the driver supports getting arbitrary columns from updated rows             |
+| `SQL_RC_DELETE_ROWID` | The driver supports the use of `{rowid}` to retrieve a unique set of columns for deleted rows   |
+| `SQL_RC_DELETE_KEY`   | The driver supports getting primary key columns of inserted rows                                |
+| `SQL_RC_DELETE_ANY`   | The driver supports the driver supports getting arbitrary columns from deleted rows             |
+
+####3.3.5.3 Format Clause
+
+The *ODBC-format-escape* clause enables clients to return results as a JSON-formatted string:
+
+*ODBC-format-escape* ::= RETURNING *data-type* *json-format-clause*
+
+*json-format-clause* ::= FORMAT JSON \[ENCODING {UTF8 | UTF16 | UTF32}\]
+
+For results returned as JSON, *data-type* must be a character string or binary type. If ENCODING is specified, then *data-type* must be a binary type.
+
+Drivers advertise support for this escape clause through the `SQL_FORMAT_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values.
+
+| Value                | Description                                                                         |
+|----------------------|-------------------------------------------------------------------------------------|
+| `SQL_FC_NONE` = 0    | The driver has no support for the format escape clause                              |
+| `SQL_FC_JSON`        | The driver supports returning results as a JSON character string                    |
+| `SQL_FC_JSON_BINARY` | The driver supports returning results as a JSON binary string                       |
+
+####3.3.5.4 Native Syntax
 
 ODBC clients use the `SQL_NOSCAN` statement attribute to specify that the command text is in a native syntax and should not be parsed by the driver. In this case, the entire statement must be in a native syntax and escape clauses must not be used as the driver will not scan the statement but instead pass it directly to the server.
 
 The *ODBC-native-escape* clause enables clients to embed native syntax within a SQL92 statement:
 
-<span id="_MailEndCompose" class="anchor"></span>*ODBC-native-escape* ::=
+*ODBC-native-escape* ::=
      *ODBC-esc-initiator* native (*command-text*) \[*returning-clause*\] *ODBC-esc-terminator*
 
 *returning-clause* ::= RETURNING (*type* \[, *type*\]…) \[*json-format-clause*\]
-
-*json-format-clause* ::= FORMAT JSON \[ENCODING {UTF8 | UTF16 | UTF32}\]
 
 *type* ::= {*data-type* | ROW ( *field-definition* \[, *field-definition*\]… ) } \[ARRAY | MULTISET\]
 
@@ -400,11 +429,13 @@ Where *command-text* is a textual query in the native language of the service. A
 
 The *returning-clause* is required for retrieving results from the native syntax and when embedding the native syntax in place of a query expression within a standard SQL statement.
 
+If *json-format-clause* is specified, *type* must be a string or binary type.
+
 Single question marks within the native command not within single-quotation marks are interpreted as parameter markers. In order to pass an unquoted question mark as part of the native syntax, the application must double the question mark. The driver will convert unquoted doubled question marks to single question marks when evaluating the native command.
 
 Drivers advertise support for this escape clause through the new `SQL_NATIVE_ESCAPE_CLAUSE` *InfoType* whose value is the character string “`Y`” if the escape clause is supported; “`N`” otherwise.
 
-####3.3.5.4 Refresh Schema
+####3.3.5.5 Refresh Schema
 
 ODBC adds a new *ODBC-refresh-schema-escape* clause to enable clients to request that schema be refreshed, defined as follows:
 
@@ -812,7 +843,6 @@ Structured columns can be created within a table using a named structural type o
 LastName varchar(25)), Address ADDRESS)
 
 ##3.11 Collection-valued Columns
--------------------------
 
 ODBC adds support for collection-valued columns.
 
@@ -830,7 +860,7 @@ For ordered array-valued columns, the value of the `DATA_TYPE` attributes is `SQ
 
 The remaining columns, including the `SQL_DATA_TYPE`, describe the type of the element within the collection.
 
-Additionally, clients may get the type of a collection-valued column by passing the name of the collection-valued column appended with “/$element” (recursively, for nested arrays), as the column name in SQLColumns/SQLTypeColumns.
+Additionally, clients may get the type of a collection-valued column by passing the name of the collection-valued column appended with “[]” (repeated, for nested arrays), as the column name in SQLColumns/SQLTypeColumns.
 
 ###3.11.2 Query Extensions for Collections
 
@@ -969,7 +999,7 @@ ODBC 4.0 drivers support ODBC 3.x clients by defaulting to a relational view for
 Certain ODBC 4.0 behavior may still available to an application that declares an ODBC version of 3.x, but it must be explicitly opted into by the application, for example, by setting new attributes.
 
 ##5.1 ODBC 3.x Clients
-Clients that specify a `SQL_ATTR_ODBC_VERSION` environment attribute value representing ODBC 2.x or 3.x can still use escape clauses, connection keywords, Infotypes, and attributes specified in this document, as supported by the driver. Where available, drivers should query the corresponding InfoType to ensure support or be prepared for corresponding errors.
+Clients that specify a `SQL_ATTR_ODBC_VERSION` environment attribute value representing ODBC 2.x or 3.x can still use escape clauses, connection keywords, Infotypes, and attributes specified in this document, as supported by the driver. Where available, clients should query the corresponding InfoType to ensure support or be prepared for corresponding errors.
 
 ODBC 3.0 Clients should not attempt to use `SQL_DATA_AT_FETCH` column bindings against ODBC drivers that report an ODBC 2.x or ODBC 3.x `ODBC_DRIVER_VERSION` InfoType.
 
@@ -999,11 +1029,11 @@ In addition, if the driver supports `SQL_UDT`, it must:
 ##5.5 ODBC 4.0 Driver Manager
 The ODBC 4.0 Driver Manager will map the following InfoTypes and attributes for 2.x and 3.x drivers:
 
-| **InfoType/Attribute**             |      **Behavior**                                        |
+| **InfoType/Attribute**               |      **Behavior**                                          |
 | `SQL_SCHEMA_INFERENCE`               | If not supported by the driver, SQLGetInfo returns `FALSE` |
 | `SQL_ATTR_DYNAMIC_COLUMNS`           | If not supported by the driver, SQLGetStmtAttr returns `FALSE` and SQLSetStmtAttr  returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02.  |
-| `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` | If not supported by the driver, SQLGetStmtAttr returns returns k and SQLGetStmtAttr with a value other than `SQL_LE_CONTINUE` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented |
-| `SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`   | If not supported by the driver, SQLGetStmtAttr returns returns SQL_TE_ERROR and SQLGetStmtAttr with a value other than `SQL_TE_ERROR` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented  |
+| `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` | If not supported by the driver, SQLGetStmtAttr returns returns `SQL_LE_CONTINUE` and SQLSetStmtAttr with a value other than `SQL_LE_CONTINUE` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented |
+| `SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`   | If not supported by the driver, SQLGetStmtAttr returns returns SQL_TE_ERROR and SQLSetStmtAttr with a value other than `SQL_TE_ERROR` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented  |
 
 #6 New Functions
 The following functions are added in ODBC 4.0.
