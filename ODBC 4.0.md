@@ -1,16 +1,42 @@
 ODBC 4.0 Specification
 =
 
+Table of Contents
+
+1. [Overview](#overview)
+2. [Compatibility with ODBC 3.x](#compatibility-with-3.x)
+3. [Design](#design)
+   1. [Private Drivers](#private-drivers)
+   2. [Web Authorization](#web-authorization)
+   3. [SQL Syntax Support](#sql-syntax-support)
+   4. [String Format](#string-format)
+   5. [Schema Inference](#schema-inference)
+   6. [Getting Data during Fetch](#getting-data-during-fetch)
+   7. [Variable Typed Columns](#variable-typed-columns)
+   8. [Variable Length Columns](#variable-length-columns)
+   9. [Dynamic Columns](#dynamic-columns)
+   10. [Structured Columns](#structured-columns)
+   11. [Collection-valued Columns](#collection-valued-columns)
+4. [Change Tracking](#change-tracking)
+5. [Compatibility](#compatibility)
+	1. [ODBC 3.x Clients](#odbc-3.x-clients)
+	2. [ODBC 3.x Drivers](#odbc-3.x-drivers)
+	3. [ODBC 4.0 Drivers](#odbc-4.0-drivers)
+	4. [ODBC 4.0 Driver Manager](#odbc-4.0-driver-manager)
+6. [New Functions](#new-functions)
+	1. [SQLNextColumn](#sqlnextcolumn)
+	2. [SQLGetNestedHandle](#sqlgetnestedhandle)
+	3. [SQLStructuredTypes](#sqlstructuredtypes)
+	4. [SQLStructuredTypeColumns](#sqlstructuredtypecolumns)
+
 #1 Overview
+<span id="overview" class="anchor"></span>
 
 ODBC is a widely adopted, standard, client-side API that works well for relational (i.e., tabular) data. However, many types of today's data may not fit well into a relational model. ODBC 4.0 defines extensions to support non-relational concepts such as:
 
 1.  Dynamic columns (columns not defined in schema)
-
 2.  Structured columns
-
 3.  Collection-valued columns
-
 4.  Untyped/Varying typed columns
 
 In addition, general enhancements are added in order to improve interoperability of generic ODBC clients across diverse data sources, including enhanced discovery, authentication, syntax, and capability reporting.
@@ -430,39 +456,26 @@ Applications can specify that certain columns are to be retrieved using SQLGetDa
 In order to specify that a column is to be retrieved using SQLGetData or [SQLGetNestedHandle](#sqlgetnestedhandle):
 
 1.  The application calls SQLBindCol (or equivalent SQLDescField/SQLDescRec), specifying the following:
-
     -   `ColumnNumber` is the number of the column to be retrieved using SQLGetData/SQLGetNestedData
-
     -   `TargetType` is the type of the column
-
     -   `TargetValuePtr` and `BufferLength` are ignored
-
     -   `StrLen_or_IndPtr` is set to a buffer containing `SQL_DATA_AT_FETCH`
 
 2.  App calls SQLFetch/SQLFetchScroll
-
     -   Driver begins populating the bindings
-
     -   If the driver comes to a column for which `str_len_or_indicator_ptr` values is set to `SQL_DATA_AT_FETCH`, it sets `str_len_or_indicator_ptr` for all columns not yet retrieved, and whose values are not `SQL_DATA_AT_FETCH`, to `SQL_DATA_UNAVAILABLE`.
-
     -   Driver returns `SQL_DATA_AVAILABLE` return code from SQLFetch/SQLFetchScroll
-
         1.  Calling SQLFetch/SQLFetchScroll after SQLFetch, SQLFetchScroll, or SQLNextColumn returns `SQL_DATA_AVAILABLE` skips the remaining columns and begins fetching the next row.
 
 3.  App calls SQLNextColumn to find out which column is available. Applications must not assume that the columns are returned in any particular order.
-
     -   Driver returns the ordinal of the available column
-
     -   For row array sizes greater than 1, the row for which the column is available can be determined through the `SQL_ATTR_ROWS_FETCHED_PTR` statement attribute. The client cannot assume that rows prior to the current value of `SQL_ATTR_ROWS_FETCHED_PTR` are complete until the entire fetch sequence has completed and SQLFetch or SQLNextColumn returns a value other than `SQL_DATA_AVAILABLE`.
 
 4.  App calls SQLGetData/SQLGetNestedHandle, as appropriate, to read the specified column
-
     -   Or just ignores it, or binds it
 
 5.  App calls [SQLNextColumn](#sqlnextcolumn) to continue fetching the current row
-
     -   Driver returns `SQL_DATA_AVAILABLE`, along with the ordinal of the next column available to be retrieved, if additional columns are available
-
     -   Driver returns `SQL_SUCCESS` or `SQL_SUCCESS_WITH_INFO` when all columns for which a binding has been specified have been retrieved.
 
 6.  App can call SQLGetData/SQLGetNestedData for additional columns beyond the last bound column, or subject to the ordering constraints of the driver.
@@ -756,46 +769,27 @@ Structured parameters can be passed to the driver at execute time.
 To pass a structured parameter at execute time, the application:
 
 1.  Calls SQLBindParameter (or equivalent SQLDescField/SQLDescRec), specifying the following:
-
--   ValueType is `SQL_C_DEFAULT` (sets `SQL_DESC_TYPE`/`SQL_DESC_CONCISE_TYPE` in APD)
-
--   ParameterType is `SQL_ROW` or `SQL_UDT` (sets `SQL_DESC_TYPE`/`SQL_DESC_CONCISE_TYPE` in IPD)
-
-    -   For SQL_UDT, must set descriptor fields to specify:
-        -   `USER_DEFINED_TYPE_CATALOG`
-        -   `USER_DEFINED_TYPE_NAME`
-        -   `USER_DEFINED_TYPE_SCHEMA`
-
--   ParameterValuePtr is set to a 32bit value identifying the parameter (passed back to the app from SQLParamData when data is needed for this parameter)
-
--   `StrLen_or_IndPtr` is set to a buffer containing `SQL_DATA_AT_EXEC`
-
-1.  App calls SQLPrepare/SQLExecute or SQLExecDirect
-
+  - ValueType is `SQL_C_DEFAULT` (sets `SQL_DESC_TYPE`/`SQL_DESC_CONCISE_TYPE` in APD)
+  - ParameterType is `SQL_ROW` or `SQL_UDT` (sets `SQL_DESC_TYPE`/`SQL_DESC_CONCISE_TYPE` in IPD)
+  - For SQL_UDT, must set descriptor fields to specify:
+     -   `USER_DEFINED_TYPE_CATALOG`
+     -   `USER_DEFINED_TYPE_NAME`
+     -   `USER_DEFINED_TYPE_SCHEMA`
+  - ParameterValuePtr is set to a 32bit value identifying the parameter (passed back to the app from SQLParamData when data is needed for this parameter)
+  -   `StrLen_or_IndPtr` is set to a buffer containing `SQL_DATA_AT_EXEC`
+2.  App calls SQLPrepare/SQLExecute or SQLExecDirect
     -   Driver returns `SQL_NEED_DATA`.
-
-2.  App calls SQLParamData to find out which param the driver is asking about.
-
+3.  App calls SQLParamData to find out which param the driver is asking about.
     -   Driver returns `SQL_NEED_DATA` and passes back value from ParameterValuePtr.
-
-3.  To specify a null or a default parameter value, the application calls SQLPutData with `str_len_or_ind` set to `SQL_NULL_DATA` or `SQL_DEFAULT_PARAM`, respectively, followed by SQLParamData to progress to the next parameter.
-
-4.  For a non-null structured parameter, the app calls SQLGetNestedHandle for the specified parameter
-
+4.  To specify a null or a default parameter value, the application calls SQLPutData with `str_len_or_ind` set to `SQL_NULL_DATA` or `SQL_DEFAULT_PARAM`, respectively, followed by SQLParamData to progress to the next parameter.
+5.  For a non-null structured parameter, the app calls SQLGetNestedHandle for the specified parameter
     -   Driver returns a nested statement handle
-
-5.  App calls SQLBindParameter/SQLSetDescField to bind the nested parameters as named parameters.
-
+6.  App calls SQLBindParameter/SQLSetDescField to bind the nested parameters as named parameters.
     -   Individual property names are specified by setting the `SQL_DESC_NAME` attribute in the Implementation Parameter Descriptor (Driver sets `SQL_DESC_UNNAMED` to `SQL_NAMED`)
-
-6.  App sets the appropriate values in the buffer and calls SQLExecute on the nested handle to send the row
-
+7.  App sets the appropriate values in the buffer and calls SQLExecute on the nested handle to send the row
     -   Driver returns `SQL_NEED_DATA` if there are any data-at-execute parameters on the nested handle
-
-7.  App calls SQLParamData to indicate it has sent all of the data for the parameter
-
+8.  App calls SQLParamData to indicate it has sent all of the data for the parameter
     -   If the parameter is a structured- or collection-valued parameter whose value was set through a nested statement handle, calling SQLParamData implicitly frees that handle
-
     -   Driver returns `SQL_NEED_DATA` if there are any remaining data-at-execute parameters.
 
 ###3.10.5 Data Definition Extensions for Structured Columns
@@ -920,48 +914,28 @@ Collection-valued parameters can be passed to the driver at execute time.
 To pass an array-valued parameter at execute time, the application:
 
 1.  Application SQLBindCol (or equivalent SQLDescField/SQLDescRec), specifying the following:
-
--   ValueType is `SQL_C_DEFAULT` (sets `SQL_DESC_TYPE`/`SQL_DESC_CONCISE_TYPE` in APD)
-
--   ParameterType is `SQL_ARRAY` or `SQL_MULTISET` (sets `SQL_DESC_TYPE`/`SQL_DESC_CONCISE_TYPE` in IPD)
-
-    -   Sets the `SQL_DESC_SUBTYPE` of the IPD to the type of the array or multiset, if known
-
-    -   For SQL_UDT sets descriptor fields to specify:
-        -   `USER_DEFINED_TYPE_CATALOG`
-        -   `USER_DEFINED_TYPE_SCHEMA`
-        -   `USER_DEFINED_TYPE_NAME`
-
--   ParameterValuePtr is set to a 32bit value identifying the parameter (passed back to the app from SQLParamData when data is needed for this parameter)
-
--   StrLen_or_IndPtr is set to a buffer containing `SQL_DATA_AT_EXEC`
-
-1.  Application calls SQLPrepare/SQLExecute or SQLExecDirect
-
+  - ValueType is `SQL_C_DEFAULT` (sets `SQL_DESC_TYPE`/`SQL_DESC_CONCISE_TYPE` in APD)
+  - ParameterType is `SQL_ARRAY` or `SQL_MULTISET` (sets `SQL_DESC_TYPE`/`SQL_DESC_CONCISE_TYPE` in IPD)
+     - Sets the `SQL_DESC_SUBTYPE` of the IPD to the type of the array or multiset, if known
+     - For SQL_UDT sets descriptor fields to specify:
+         - `USER_DEFINED_TYPE_CATALOG`
+         - `USER_DEFINED_TYPE_SCHEMA`
+         - `USER_DEFINED_TYPE_NAME`
+  - ParameterValuePtr is set to a 32bit value identifying the parameter (passed back to the app from SQLParamData when data is needed for this parameter)
+  - StrLen_or_IndPtr is set to a buffer containing `SQL_DATA_AT_EXEC`
+2.  Application calls SQLPrepare/SQLExecute or SQLExecDirect
     -   Driver returns `SQL_NEED_DATA`.
-
-2.  Application calls SQLParamData to find out which param the driver is asking about.
-
+3.  Application calls SQLParamData to find out which param the driver is asking about.
     -   Driver returns `SQL_NEED_DATA` and passes back value from ParameterValuePtr.
-
-3.  To specify a null value, a default value, or an empty array, the application calls SQLPutData with `str_len_or_ind` set to `SQL_NULL_DATA`, `SQL_DEFAULT_PARAM`, or `SQL_EMPTY_ARRAY`, respectively, followed by SQLParamData to progress to the next parameter.
-
-4.  To specify a non-empty array, the application calls GetNestedHandle for the specified parameter
-
+4.  To specify a null value, a default value, or an empty array, the application calls SQLPutData with `str_len_or_ind` set to `SQL_NULL_DATA`, `SQL_DEFAULT_PARAM`, or `SQL_EMPTY_ARRAY`, respectively, followed by SQLParamData to progress to the next parameter.
+5.  To specify a non-empty array, the application calls GetNestedHandle for the specified parameter
     -   Driver returns a nested statement handle
-
-5.  Application calls BindParameter/SetDescField to bind the nested columns.
-
+6.  Application calls BindParameter/SetDescField to bind the nested columns.
     -   Individual column names are specified by setting the `SQL_DESC_NAME` attribute in the Implementation Parameter Descriptor.
-
-6.  Application sets the appropriate values in the buffer and calls SQLExecute on the nested handle to send the row of data
-
+7.  Application sets the appropriate values in the buffer and calls SQLExecute on the nested handle to send the row of data
     -   Driver returns `SQL_NEED_DATA` if there are any data-at-execute parameters on the nested handle
-
-7.  Application repeats step 7 for each nested row
-
-8.  Application calls SQLParamData to indicate it has sent all of the data for the parameter
-
+8.  Application repeats step 7 for each nested row
+9.  Application calls SQLParamData to indicate it has sent all of the data for the parameter
     -   Driver returns `SQL_NEED_DATA` if there are any remaining data-at-execute parameters.
 
 #4 Change Tracking
