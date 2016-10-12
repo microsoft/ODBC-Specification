@@ -379,8 +379,8 @@ If the application requests columns that exist in the row but the driver is unab
 
 Drivers advertise support for this escape clause through the `SQL_RETURN_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values. Note that supporting an arbitrary column for an expression implies supporting primary key fields for that expression.
 
-| Value                        | Description                                                                                             |
-|------------------------------|---------------------------------------------------------------------------------------------------------|
+| Value                        | Description                                                        |
+|--------------------------------------|------------------------------------------------------------|
 | `SQL_RC_NONE` = 0            | The driver has no support for the return escape clause                                                  |
 | `SQL_RC_SINGLE_INSERT_ROWID` | The driver supports the use of `{rowid}` to retrieve a unique set of columns for a single inserted row  |
 | `SQL_RC_INSERT_ROWID`        | The driver supports the use of `{rowid}` to retrieve a unique set of columns for sets of inserted rows  |
@@ -701,8 +701,8 @@ If calling SQLColumns or SQLStructuredColumns in this way returns `SQL_ROW` as t
 
 The following columns are added, in order, to the set of columns returned by SQLColumns when requested by ODBC 4.0 or greater applications:
 
-| **Column name**  | **Column number** | **Data type** | **Comments**                                                           |
-|-------------------|-------------------|---------------|------------------------------------------------------------------------|
+| **Column name**  | **Column number** | **Data type** | **Comments**                                           |
+|---------------------|---------------|---------------|---------------------------------------------------------|
 | `CHAR_SET_CAT`    | 19                | Varchar       | Catalog of the Character set for the column, or null.                  |
 | `CHAR_SET_SCHEM`  | 20                | Varchar       | Schema of the Character set for the column, or null.                   |
 | `CHAR_SET_NAME`   | 21                | Varchar       | Character set name for the column, or null.                            |
@@ -1054,7 +1054,8 @@ In addition, if the driver supports `SQL_UDT`, it must:
 ## 5.4 ODBC 4.0 Driver Manager
 The ODBC 4.0 Driver Manager will map the following InfoTypes and attributes for 2.x and 3.x drivers:
 
-| **InfoType/Attribute**               | **Behavior**                                               |                                      |                                                            |--------------------------------------|------------------------------------------------------------|
+| **InfoType/Attribute**               | **Behavior**                                               |
+|--------------------------------------|------------------------------------------------------------|
 | `SQL_SCHEMA_INFERENCE`               | If not supported by the driver, SQLGetInfo returns `FALSE` |
 | `SQL_ATTR_DYNAMIC_COLUMNS`           | If not supported by the driver, SQLGetStmtAttr returns `FALSE` and SQLSetStmtAttr  returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02.  |
 | `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` | If not supported by the driver, SQLGetStmtAttr returns returns `SQL_LE_CONTINUE` and SQLSetStmtAttr with a value other than `SQL_LE_CONTINUE` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented |
@@ -1216,8 +1217,8 @@ SQLStructuredTypeColumns describes the columns of a named structural type.
 
 The result of SQLStructuredTypeColumns mirrors the result of SQLColumns:
 
-| **Column name**     | **Column number** | **Data type**     | **Comments**                                                                                                                     |
-|---------------------|-------------------|-------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| **Column name**     | **Column number** | **Data type**     | **Comments**        |
+|---------------------|---------------|---------------|---------------------------------------------------------|
 | `UDT_CAT`            | 1                 | Varchar           | Catalog name; NULL if not applicable to the data source.                                                                         |
 | `UDT_SCHEM`          | 2                 | Varchar           | Schema name; NULL if not applicable to the data source.                                                                          |
 | `UDT_NAME`           | 3                 | Varchar not NULL  | Structured Type name.                                                                                                            |
