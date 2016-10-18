@@ -382,12 +382,12 @@ Drivers advertise support for this escape clause through the `SQL_RETURN_ESCAPE_
 | Value                        | Description                                                                                             |
 |------------------------------|---------------------------------------------------------------------------------------------------------|
 | `SQL_RC_NONE` = 0            | The driver has no support for the return escape clause                                                  |
-| `SQL_RC_SINGLE_INSERT_ROWID` | The driver supports the use of `{rowid}` to retrieve a unique set of columns for a single inserted row  |
-| `SQL_RC_INSERT_ROWID`        | The driver supports the use of `{rowid}` to retrieve a unique set of columns for sets of inserted rows  |
+| `SQL_RC_SINGLE_INSERT_ROWID` | The driver supports the use of `{rowid}` to retrieve a set of columns to uniquely identify a single row  |
+| `SQL_RC_INSERT_ROWID`        | The driver supports the use of `{rowid}` to retrieve a set of columns to uniquely identify a set of inserted rows  |
 | `SQL_RC_INSERT_SELECTLIST`   | The driver supports getting arbitrary columns from sets of inserted rows                                |
-| `SQL_RC_UPDATE_ROWID`        | The driver supports the use of `{rowid}` to retrieve a unique set of columns for sets of updated rows   |
+| `SQL_RC_UPDATE_ROWID`        | The driver supports the use of `{rowid}` to retrieve a set of columns to uniquely identify a set of updated rows   |
 | `SQL_RC_UPDATE_SELECTLIST`   | The driver supports getting arbitrary columns from sets of updated rows                                 |
-| `SQL_RC_DELETE_ROWID`        | The driver supports the use of `{rowid}` to retrieve a unique set of columns for sets of deleted rows   |
+| `SQL_RC_DELETE_ROWID`        | The driver supports the use of `{rowid}` to retrieve a set of columns to uniquely identify a set of deleted rows   |
 | `SQL_RC_DELETE_SELECTLIST`   | The driver supports getting arbitrary columns from sets of deleted rows                                 |
 
 #### 3.3.5.3 Format Clause
