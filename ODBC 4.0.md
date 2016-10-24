@@ -353,13 +353,7 @@ Drivers advertise support for this escape clause through the new `SQL_LIMIT_ESCA
 The *ODBC-return-escape* clause returns a table containing information from inserted, updated, and deleted records:
 
 *ODBC-return-escape* ::=
-     *ODBC-esc-initiator* return *return-specification* from (*vendor-dml-statement*) *ODBC-esc-terminator*
-
-*return-specification* ::= *rowid* | *select-list* \[, *rowid* | *select-list*\]...
-
-*rowid* ::= *ODBC-esc-initiator* rowid *ODBC-esc-terminator*
-
-If *rowid* is specified in *return-specification*, the driver adds to the select list the column or columns that uniquely identify each row in the target table (typically the set of columns returned for `SQL_BEST_ROWID` in SQLSpecialColumns). 
+     *ODBC-esc-initiator* return *select-list* from (*vendor-dml-statement*) *ODBC-esc-terminator*
 
 For example, the following statement returns a table containing the columns named "id" and "total" of a newly inserted row:
 
@@ -369,26 +363,27 @@ The following statement retrieves the new total of all rows with ids above 10 th
 
 > {return total from (UPDATE table SET {amount=amount\*10} WHERE id &gt; 10)}
 
-The following statement retrieves the set of columns that uniquely identify a row in the target table for all rows with totals above 10 that were deleted:
+The driver may limit the columns in the select-list to be only those columns returned as the best row id columns in SQLSpecialColumns, as specified in the `SQL_RETURN_ESCAPE_CLAUSE`.
 
-> {return {rowid} from (DELETE FROM table WHERE total &gt; 10)}
+If the application requests columns that don't exist in the row and SQL_DYNAMIC_COLUMNS is false, or the driver only supports returning row id columns and the client specifies non-row id columns in *select-list*, the driver returns `42S22` Column not found.  
 
-If the application requests columns that don't exist in the row, or the client specifies `{rowid}` and no set of columns uniquely identify the row, the driver returns `42S22` Column not found.  
+Drivers advertise support for this escape clause through the `SQL_RETURN_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values.
 
-If the application requests columns that exist in the row but the driver is unable to return those columns, the driver should return `HYC00` Optional feature not implemented but may instead return `42S22` Column not found.
-
-Drivers advertise support for this escape clause through the `SQL_RETURN_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values. Note that supporting an arbitrary column for an expression implies supporting primary key fields for that expression.
-
-| Value                        | Description                                                        |
-|--------------------------------------|------------------------------------------------------------|
-| `SQL_RC_NONE` = 0            | The driver has no support for the return escape clause                                                  |
-| `SQL_RC_SINGLE_INSERT_ROWID` | The driver supports the use of `{rowid}` to retrieve a set of columns to uniquely identify a single row  |
-| `SQL_RC_INSERT_ROWID`        | The driver supports the use of `{rowid}` to retrieve a set of columns to uniquely identify a set of inserted rows  |
-| `SQL_RC_INSERT_SELECTLIST`   | The driver supports getting arbitrary columns from sets of inserted rows                                |
-| `SQL_RC_UPDATE_ROWID`        | The driver supports the use of `{rowid}` to retrieve a set of columns to uniquely identify a set of updated rows   |
-| `SQL_RC_UPDATE_SELECTLIST`   | The driver supports getting arbitrary columns from sets of updated rows                                 |
-| `SQL_RC_DELETE_ROWID`        | The driver supports the use of `{rowid}` to retrieve a set of columns to uniquely identify a set of deleted rows   |
-| `SQL_RC_DELETE_SELECTLIST`   | The driver supports getting arbitrary columns from sets of deleted rows                                 |
+| Value                          | Description                                                         |
+|--------------------------------|---------------------------------------------------------------------|
+| `SQL_RC_NONE` = 0              | The driver has no support for the return escape clause                                                |
+| `SQL_RC_INSERT_SINGLE_ROWID`   | The driver supports returning row id fields for a single row from an INSERT INTO...VALUES statement   |
+| `SQL_RC_INSERT_SINGLE_ANY`     | The driver supports returning any fields for a single row from an INSERT INTO...VALUES statement      |
+| `SQL_RC_INSERT_MULTIPLE_ROWID` | The driver supports returning row id fields for multiple rows from an INSERT INTO...VALUES statement  |
+| `SQL_RC_INSERT_MULTIPLE_ANY`   | The driver supports returning any fields for multiple rows from an INSERT INTO...VALUES statement     |
+| `SQL_RC_INSERT_SELECT_ROWID`   | The driver supports returning row id fields from an INSERT INTO...SELECT statement                    |
+| `SQL_RC_INSERT_SELECT_ANY`     | The driver supports returning any fields from an INSERT INTO...SELECT statement                       |
+| `SQL_RC_UPDATE_ROWID`          | The driver supports returning row id fields from an UPDATE statement                                  |
+| `SQL_RC_UPDATE_ANY`            | The driver supports returning any fields from a UPDATE statement                                      |
+| `SQL_RC_DELETE_ROWID`          | The driver supports returning row id fields from a DELETE statement                                   |
+| `SQL_RC_DELETE_ANY`            | The driver supports returning any fields from a DELETE statement                                      |
+| `SQL_RC_SELECT_INTO_ROWID`     | The driver supports returning row id fields from a SELECT INTO statement                              |
+| `SQL_RC_SELECT_INTO_ANY`       | The driver supports returning any fields from a SELECT INTO statement                                 |
 
 #### 3.3.5.3 Format Clause
 
@@ -402,11 +397,11 @@ For results returned as JSON, *data-type* must be a character string or binary t
 
 Drivers advertise support for this escape clause through the `SQL_FORMAT_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values.
 
-| Value                | Description                                                                         |
-|----------------------|-------------------------------------------------------------------------------------|
-| `SQL_FC_NONE` = 0    | The driver has no support for the format escape clause                              |
-| `SQL_FC_JSON`        | The driver supports returning results as a JSON character string                    |
-| `SQL_FC_JSON_BINARY` | The driver supports returning results as a JSON binary string                       |
+| Value                | Description                                                       |
+|----------------------|-------------------------------------------------------------------|
+| `SQL_FC_NONE` = 0    | The driver has no support for the format escape clause            |
+| `SQL_FC_JSON`        | The driver supports returning results as a JSON character string  |
+| `SQL_FC_JSON_BINARY` | The driver supports returning results as a JSON binary string     |
 
 #### 3.3.5.4 Native Syntax
 
