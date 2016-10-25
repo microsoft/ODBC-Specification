@@ -348,24 +348,36 @@ Drivers advertise support for this escape clause through the new `SQL_LIMIT_ESCA
 * **SQL\_LC\_TAKE** = 1 – the driver supports only the take portion of the limit escape clause
 * **SQL\_LC\_TAKE\_AND\_SKIP** = 3 – the driver supports both take and skip in the limit escape clause
 
-#### 3.3.5.2 Selecting Inserted/Updated/Deleted Values
+#### 3.3.5.2 Selecting Inserted Updated and Deleted Values
 
 The *ODBC-return-escape* clause returns a table containing information from inserted, updated, and deleted records:
 
 *ODBC-return-escape* ::=
-     *ODBC-esc-initiator* return *select-list* from (*vendor-dml-statement*) *ODBC-esc-terminator*
+     *ODBC-esc-initiator* return *select-list* from '*vendor-dml-statement*' *ODBC-esc-terminator*
 
-For example, the following statement returns a table containing the columns named "id" and "total" of a newly inserted row:
+For Inserts and Updates, the returned values are the values of the affected rows following the insert or update operation. For delete operations, the returned values represent the values of the rows at the time they were deleted.
 
-> {return id from (INSERT INTO table(amount,total) VALUES (2,3))}
+For example, the following statement returns a table containing the columns named "OrderId", "Item" and "Total" of a newly inserted row:
+
+> {return OrderId, Item, Total from (INSERT INTO Orders(Item, Price, Quantity) VALUES ("San Juan Islands Map",24,2))}
 
 The following statement retrieves the new total of all rows with ids above 10 that were updated:
 
 > {return total from (UPDATE table SET {amount=amount\*10} WHERE id &gt; 10)}
 
-The driver may limit the columns in the select-list to be only those columns returned as the best row id columns in SQLSpecialColumns, as specified in the `SQL_RETURN_ESCAPE_CLAUSE`.
+Quotation marks within the *vendor-dml-statement* must be doubled. The driver replaces double quotations marks within the *verndor-dml-statement* with single quotation marks. A single quotation mark terminates the *vendor-dml-statement*.
 
-If the application requests columns that don't exist in the row and SQL_DYNAMIC_COLUMNS is false, or the driver only supports returning row id columns and the client specifies non-row id columns in *select-list*, the driver returns `42S22` Column not found.  
+The *ODBC-return-escape* should not be used as a nested query within another statement.
+
+If an array of parameter values is specified, then whether there is a result set for each set of parameter values or a single result that merges the results from each set of parameter values is defined by the `SQL_PARAM_ARRAY_SELECTS` SQLGetInfo *InfoType*.
+
+If multiple rows are specified in an INSERT INTO...VALUES statement, or an array of parameter values are specified, then the order of rows returned matches the order of values specified. In all other cases, the order of returned rows is indeterminate.  
+
+If no rows are affected by the statement, an empty result is returned.
+
+The driver may limit the columns in the select-list to include only the best row id columns returned by SQLSpecialColumns, as specified in the `SQL_RETURN_ESCAPE_CLAUSE` *InfoType*.
+
+If the application requests columns that don't exist in the row and SQL_DYNAMIC_COLUMNS is false, or the driver only supports returning row id columns and the client specifies non-row id columns in the *select-list*, the driver returns `42S22` Column not found.
 
 Drivers advertise support for this escape clause through the `SQL_RETURN_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values.
 
@@ -410,7 +422,7 @@ ODBC clients use the `SQL_NOSCAN` statement attribute to specify that the comman
 The *ODBC-native-escape* clause enables clients to embed native syntax within a SQL92 statement:
 
 *ODBC-native-escape* ::=
-     *ODBC-esc-initiator* native (*command-text*) \[*returning-clause*\] *ODBC-esc-terminator*
+     *ODBC-esc-initiator* native '*command-text*' \[*returning-clause*\] *ODBC-esc-terminator*
 
 *returning-clause* ::= RETURNING (*type* \[, *type*\]…) \[*json-format-clause*\]
 
@@ -425,6 +437,8 @@ The *returning-clause* is required for retrieving results from the native syntax
 If *json-format-clause* is specified, *type* must be a string or binary type.
 
 Single question marks within the native command not within single-quotation marks are interpreted as parameter markers. In order to pass an unquoted question mark as part of the native syntax, the application must double the question mark. The driver will convert unquoted doubled question marks to single question marks when evaluating the native command.
+
+Quotation marks within the native syntax must be doubled. The driver replaces double quotations marks within the native syntax with single quotation marks. A single quotation mark terminates the native command text.
 
 Drivers advertise support for this escape clause through the new `SQL_NATIVE_ESCAPE_CLAUSE` *InfoType* whose value is the character string “`Y`” if the escape clause is supported; “`N`” otherwise.
 
