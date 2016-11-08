@@ -359,15 +359,15 @@ For Inserts and Updates, the returned values are the values of the affected rows
 
 For example, the following statement returns a table containing the columns named "OrderId", "Item" and "Total" of a newly inserted row:
 
-> {return OrderId, Item, Total from (INSERT INTO Orders(Item, Price, Quantity) VALUES ("San Juan Islands Map",24,2))}
+> {return OrderId, Item, Total from 'INSERT INTO Orders(Item, Price, Quantity) VALUES (''San Juan Islands Map'',24,2)'}
 
 The following statement retrieves the new total of all rows with ids above 10 that were updated:
 
-> {return total from (UPDATE table SET {amount=amount\*10} WHERE id &gt; 10)}
-
-Quotation marks within the *vendor-dml-statement* must be doubled. The driver replaces double quotations marks within the *verndor-dml-statement* with single quotation marks. A single quotation mark terminates the *vendor-dml-statement*.
+> {return total from 'UPDATE table SET {amount=amount\*10} WHERE id &gt; 10'}
 
 The *ODBC-return-escape* should not be used as a nested query within another statement.
+
+Single quotation marks within *vendor-dml-statement* must be doubled. The driver replaces two adjacent single quotations marks within the dml statement with a single quotation mark. A single quotation mark terminates the dml statement.
 
 If an array of parameter values is specified, then whether there is a result set for each set of parameter values or a single result that merges the results from each set of parameter values is defined by the `SQL_PARAM_ARRAY_SELECTS` SQLGetInfo *InfoType*.
 
@@ -438,7 +438,7 @@ If *json-format-clause* is specified, *type* must be a string or binary type.
 
 Single question marks within the native command not within single-quotation marks are interpreted as parameter markers. In order to pass an unquoted question mark as part of the native syntax, the application must double the question mark. The driver will convert unquoted doubled question marks to single question marks when evaluating the native command.
 
-Quotation marks within the native syntax must be doubled. The driver replaces double quotations marks within the native syntax with single quotation marks. A single quotation mark terminates the native command text.
+Single quotation marks within the native syntax must be doubled. The driver replaces two adjacent single quotations marks within the native syntax with a single quotation mark. A single quotation mark terminates the native command text.
 
 Drivers advertise support for this escape clause through the new `SQL_NATIVE_ESCAPE_CLAUSE` *InfoType* whose value is the character string “`Y`” if the escape clause is supported; “`N`” otherwise.
 
