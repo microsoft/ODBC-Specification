@@ -363,7 +363,7 @@ For example, the following statement returns a table containing the columns name
 
 The following statement retrieves the new total of all rows with ids above 10 that were updated:
 
-> {return total from 'UPDATE table SET {amount=amount\*10} WHERE id &gt; 10'}
+> {return total from 'UPDATE table SET amount=amount\*10 WHERE id &gt; 10'}
 
 The *ODBC-return-escape* should not be used as a nested query within another statement.
 
@@ -553,7 +553,7 @@ As data is read for a row the IRD is updated to reflect the actual type informat
 
 Depending on the value of [SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR](#3731-sql_attr_type_exception_behavior), if the descriptor is changed for a column the driver may return `SQL_METADATA_CHANGED`.
 
-The application can set fields in the ARD/IRD directly or through SQLBindCol, but only for the current row. Any changes to the descriptor record persistent for future uses of that descriptor.
+The application can set fields in the ARD directly or through SQLBindCol, but only for the current column. Any changes to the descriptor record persistent for future uses of that descriptor.
 
 Upon receiving `SQL_METADATA_CHANGED`, the application can call SQLNextColumn to determine the index of the column that has changed, get the current information for that column, and either adjust bindings as necessary or call SQLGetData or SQLGetHandle, as appropriate for the type of the column.
 
@@ -600,10 +600,10 @@ When the driver returns `SQL_MORE_DATA`, the application calls SQLNextColumn in 
 
 ### 3.8.1 `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR`
 
-The new `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` is a `SQL_USMALLINT` value that allows the client to control how binary and string overflows are handled when retrieving bound values.
+The new `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` is a `SQL_USMALLINT` value that allows the client to control how string and binary overflows are handled when retrieving bound values.
 
-* **SQL\_LE\_CONTINUE** – (Default) Set the `str_type_or_ind_ptr` value for the column/output parameter to the total length available, if known, otherwise `SQL_NO_TOTAL`. When the driver completes fetching the row/executing the statement it will return `SQL_SUCCESS_WITH_INFO` with a `SQLSTATE` of `01004`, String data, right truncated.
-* **SQL\_LE\_REPORT** – Return `SQL_MORE_DATA` from the when the string or binary value of a row or parameter does not fit the bound buffer. The application can retrieve the remainder of the column/output parameter using SQLGetData, and then call SQLNextColumn or SQLParamData, as appropriate, to continue processing.
+* **SQL\_LE\_CONTINUE** – (Default) For string or binary values larger than the bound buffer length, set the `str_type_or_ind_ptr` value to the total length available, if known, otherwise `SQL_NO_TOTAL`. When the driver completes fetching the row/executing the statement it will return `SQL_SUCCESS_WITH_INFO` with a `SQLSTATE` of `01004`, String data, right truncated.
+* **SQL\_LE\_REPORT** – Return `SQL_MORE_DATA` when the string or binary value of a row or parameter does not fit the bound buffer. The application can retrieve the remainder of the column/output parameter using SQLGetData, and then call SQLNextColumn or SQLParamData, as appropriate, to continue processing.
 
 ## 3.9 Dynamic Columns
 
@@ -672,23 +672,6 @@ To create/update dynamic columns, clients can specify column names outside of th
 ### 3.9.6 Data Definition Extensions for Dynamic Columns
 
 Applications can create tables and types that support the presence of dynamic columns using the new [*ODBC-open-escape*](#3961-open-escape-clause) clause.
-
-#### 3.9.6.1 Open Escape Clause
-
-ODBC adds a new *ODBC-open-escape* clause that can be specified when creating a type or a table to specify that an instance of the type, or a row within the table, can have additional [dynamic](#39-dynamic-columns) columns not specified in the definition:
-
-*ODBC-open-escape* ::=
-     *ODBC-esc-initiator* open *ODBC-esc-terminator*
-
-For example:
-
-> CREATE {open} TYPE FULLNAME(Firstname varchar(25), LastName varchar (25))
-
-> CREATE {open} TABLE Employees(FirstName varchar(25), LastName varchar(25))
-
-Tables created with the ODBC-open-escape clause can have an empty column list, in which case all of the columns are unschematized:
-
-> CREATE {open} TABLE Stuff()
 
 ## 3.10 Structured Columns
 
