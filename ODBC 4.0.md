@@ -877,7 +877,7 @@ For ordered array-valued columns, the value of the `DATA_TYPE` attributes is `SQ
 
 The remaining columns, including the `SQL_DATA_TYPE`, describe the type of the element within the collection.
 
-Additionally, clients may get the type of a collection-valued column by passing the name of the collection-valued column appended with “[]” (repeated, for nested arrays), as the column name in SQLColumns/SQLTypeColumns.
+Additionally, clients may get the type of a collection-valued column by passing the name of the collection-valued column appended with “[]” (repeated, for nested collections), as the column name in SQLColumns/SQLTypeColumns.
 
 ### 3.11.2 Query Extensions for Collections
 
