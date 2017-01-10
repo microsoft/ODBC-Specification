@@ -1064,7 +1064,7 @@ The application calls SQLNextColumn in order to retrieve the column of data curr
       SQLHSTMT StatementHandle,
       SQLUSMALLINT* Col_or_Param_Num);
 
-SQLNextColumn can first be called only after SQLFetch or SQLFetchScroll returns `SQL_DATA_AVAILABLE`, and as long as SQLNextColumn returns `SQL_DATA_AVAILABLE`.
+SQLNextColumn can first be called only after SQLFetch or SQLFetchScroll returns `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`, and as long as SQLNextColumn continues to return one of these values.
 
 The Driver Manager returns `HY010`, Function Sequence Error under the following conditions:
 
@@ -1072,7 +1072,7 @@ The Driver Manager returns `HY010`, Function Sequence Error under the following 
 
 2.  SQLFetch or SQLFetschScroll have not been called on the executed statement.
 
-3.  The most recent call to SQLFetch, SQLFetchScroll, or SQLNextColumn did not return `SQL_DATA_AVAILABLE`
+3.  The most recent call to SQLFetch, SQLFetchScroll, or SQLNextColumn did not return `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`
 
 4.  There is an asynchronously executing function called on this statement handle, or the connection associated with this statement handle, that has not completed.
 
@@ -1080,7 +1080,7 @@ The driver manager returns `HY010`, Function sequence error, from SQLSetPos if t
 
 ### 6.1.1 Usage
 
-While fetching a row that contains a column whose `str_len_or_indicator_ptr` contains `SQL_DATA_AT_FETCH`, when reading a dynamic column while `SQL_ATTR_DYNAMIC_COLUMNS` is true, or when encountering a length or type exception, depending on the value of [`SQL_ATTR_LENGTH_EXCEPTION`](#381-SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR) and [`SQL_ATTR_TYPE_EXCEPTION`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR), respectively, the driver returns `SQL_DATA_AVAILABLE` or `SQL_METADATA_CHANGED`, and the application calls SQLNextColumn in order to determine the ordinal of the next available column to be read.
+While fetching a row that contains a column whose `str_len_or_indicator_ptr` contains `SQL_DATA_AT_FETCH`, when reading a dynamic column while `SQL_ATTR_DYNAMIC_COLUMNS` is true, or when encountering a length or type exception, depending on the value of [`SQL_ATTR_LENGTH_EXCEPTION`](#381-SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR) and [`SQL_ATTR_TYPE_EXCEPTION`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR), respectively, the driver returns `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`, and the application calls SQLNextColumn in order to determine the ordinal of the next available column to be read.
 
 The application can use the returned `Col_or_Param_Num` to retrieve information about the available column or parameter, but must not change descriptor information relative to the descriptor header record or any descriptor records not associated with the returned `Col_or_Param_Num`.
 
