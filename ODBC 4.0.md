@@ -133,7 +133,7 @@ The application next calls SQLBrowseConnect with a connection string containing 
 
 The driver responds with a connection string containing the authorization url and requesting the final redirect uri. For the best client UI experience, the output connection string should also include suggested window height and width (in pixels) for the browser window:
 
-    “AuthorizationUrl=xxx; Auth_WindowHeight=xxx;Auth_WindowWidth=xxx;Auth_CompletedRedirectUri=?”
+    “AuthorizationUrl=xxx;Auth_WindowHeight=xxx;Auth_WindowWidth=xxx;Auth_CompletedRedirectUri=?”
 
 The application navigates the browser to the Url specified by the authorization url. Auth flow is complete once the browser reaches the redirect uri.
 
