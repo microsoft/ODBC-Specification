@@ -625,11 +625,11 @@ Data sources with fixed schemas always return *False* for this value. Attempting
 
 If set to true, SQLFetch, SQLFetchScroll, SQL_NextColumn, SQLGetData, and SQLCloseCursor for nested statement handles return `SQL_DATA_AVAILABLE` if new columns are discovered/added to the IRD while retrieving results.
 
-If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then columns in the ARD that don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, then only known columns are allowed in a Select list and only known columns are returned when /* is specified.
+If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then columns in the ARD that don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, then only known columns are allowed in a select list and only known columns are returned when \* is specified.
 
 ### 3.9.2 Schema Extensions for Dynamic Columns
 
-If `SQL_ATTR_DYNAMIC_COLUMNS` is true, tables that support properties not defined in SQLColumns are returned from SQLTables using the new “`OPEN TABLE`” table type. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, such tables are returned with a table type of "`TABLE`".
+If `SQL_ATTR_DYNAMIC_COLUMNS` is true, tables that support properties not defined in SQLColumns are returned from SQLTables using the new `“OPEN TABLE”` table type. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, such tables are returned with a table type of `"TABLE"`.
 
 ### 3.9.3 Query Extensions for Dynamic Columns
 
