@@ -867,7 +867,7 @@ The ability to report collection-valued columns leverages the extensible type fa
 
 ### 3.11.1 Schema Extensions for Collection-valued Columns
 
-Collection-valued table columns are described in SQLColumns. Collection-valued result columns are described through SQLColAttribute(s)/SqlDescribeCol/SqlGetDescriptor.
+Collection-valued table columns are described in SQLColumns. Collection-valued result columns are described through SQLColAttribute(s)/SqlDescribeCol/SqlGetDescField.
 
 Collection-valued columns may be ordered or unordered.
 
