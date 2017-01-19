@@ -113,19 +113,19 @@ In cases where different authentication methods may be supported, the driver can
 
 Common keywords for `Auth_Type` include “`Basic`”, “`Integrated`”, “`OAuth_1.0`”, “`OAuth_2.0`”, and “`None`”. Drivers should use these keywords for the corresponding authentication types, where supported, and may specify other driver-specific authentication types.
 
-In order to specify an authentication method, the application calls SQLBrowseConnect with a collection string specifying one of those allowed authentication methods, and SQLBrowseConnect returns an output connection string requesting the connection attributes required for that particular choice.
+In order to specify an authentication method, the application calls SQLBrowseConnect with a connection string specifying one of those allowed authentication methods, and SQLBrowseConnect returns an output connection string requesting the connection attributes required for that particular choice.
 
 For OAuth 2.0, SQLBrowseConnect returns an OutConnectionString requesting a redirect uri, along with a client ID, a client secret, and a scope, as required, along with any required provider-specific properties.
 
-    "Auth_BaseRedirectUri:Redirect Uri:?;Auth_Client_ID:ClientID=?;Auth_Client_Secret:Client Secret=?;*Auth_Scope:Scope={XXX:xxx,YYY:yyy,ZZZ:zzz}"
+    "Auth_BaseRedirectUri:Redirect Uri=?;Auth_Client_ID:ClientID=?;Auth_Client_Secret:Client Secret=?;*Auth_Scope:Scope={XXX:xxx,YYY:yyy,ZZZ:zzz}"
 
 If the service supports scopes but the driver is unable to enumerate those scopes, it simply returns a question mark (?) as the value for `Auth_Scope` in the output connection string:
 
-    "Auth_BaseRedirectUri:Redirect Uri:?;Auth_Client_ID:ClientID=?;Auth_Client_Secret:Client Secret=?;*Auth_Scope:Scope=?"
+    "Auth_BaseRedirectUri:Redirect Uri=?;Auth_Client_ID:ClientID=?;Auth_Client_Secret:Client Secret=?;*Auth_Scope:Scope=?"
 
 For an OAuth 1.0, the output connection string would also ask for `Auth_Realm` and `Auth_Token_Secret`.
 
-    "Auth_BaseRedirectUri:Redirect Uri:?;Auth_Client_ID:ClientID=?;Auth_Client_Secret:Client Secret=?;*Auth_Scope:Scope=?;Auth_Realm:Realm=?;Auth_Token_Secret:Token Secret=?"
+    "Auth_BaseRedirectUri:Redirect Uri=?;Auth_Client_ID:ClientID=?;Auth_Client_Secret:Client Secret=?;*Auth_Scope:Scope=?;Auth_Realm:Realm=?;Auth_Token_Secret:Token Secret=?"
 
 The application next calls SQLBrowseConnect with a connection string containing the redirect uri, the client ID, and client secret, along with scope, realm, and token secret, as appropriate:
 
@@ -133,7 +133,7 @@ The application next calls SQLBrowseConnect with a connection string containing 
 
 The driver responds with a connection string containing the authorization url and requesting the final redirect uri. For the best client UI experience, the output connection string should also include suggested window height and width (in pixels) for the browser window:
 
-    “AuthorizationUrl=xxx; Auth_WindowHeight=xxx;Auth_WindowWidth=xxx;Auth_CompletedRedirectUri=?”
+    “AuthorizationUrl=xxx;Auth_WindowHeight=xxx;Auth_WindowWidth=xxx;Auth_CompletedRedirectUri=?”
 
 The application navigates the browser to the Url specified by the authorization url. Auth flow is complete once the browser reaches the redirect uri.
 
@@ -625,11 +625,11 @@ Data sources with fixed schemas always return *False* for this value. Attempting
 
 If set to true, SQLFetch, SQLFetchScroll, SQL_NextColumn, SQLGetData, and SQLCloseCursor for nested statement handles return `SQL_DATA_AVAILABLE` if new columns are discovered/added to the IRD while retrieving results.
 
-If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then columns in the ARD that don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, then only known columns are allowed in a Select list and only known columns are returned when /* is specified.
+If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then columns in the ARD that don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, then only known columns are allowed in a select list and only known columns are returned when \* is specified.
 
 ### 3.9.2 Schema Extensions for Dynamic Columns
 
-If `SQL_ATTR_DYNAMIC_COLUMNS` is true, tables that support properties not defined in SQLColumns are returned from SQLTables using the new “`OPEN TABLE`” table type. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, such tables are returned with a table type of "`TABLE`".
+If `SQL_ATTR_DYNAMIC_COLUMNS` is true, tables that support properties not defined in SQLColumns are returned from SQLTables using the new `“OPEN TABLE”` table type. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, such tables are returned with a table type of `"TABLE"`.
 
 ### 3.9.3 Query Extensions for Dynamic Columns
 
@@ -637,7 +637,7 @@ A fully explicit select-list (i.e., anything that doesn't contain \*) imposes a 
 
 Structured columns specified in a select list implicitly select all columns (declared and dynamic) of the structured type.
 
-For OPEN TABLEs, any valid identifier for the driver is allowed as a column reference in a SQL Statement (select-list, expression in a where-clause, etc.). If more than one column-source is in scope, any references to unschematized columns MUST be qualified with the row source. Columns that aren’t defined for a particular row, or whose type is not compatible in an expression, are considered null in evaluating the expression. Such columns in a select-list are treated as [untyped columns](#37-Variable-Typed-Columns) prior to the first fetch.
+For OPEN TABLEs, any valid identifier for the driver is allowed as a column reference in a SQL Statement (select-list, expression in a where-clause, etc.). If more than one column-source is in scope, any references to unschematized columns MUST be qualified with the row source. Columns that aren’t defined for a particular row, or whose type is not compatible in an expression, are considered null in evaluating the expression. Such columns in a select list or an expression are treated as [variable typed columns](#37-Variable-Typed-Columns).
 
 For tables not reported as open (including all tables for pre-ODBC 4.0 clients), it remains an error to reference an undefined column.
 
@@ -867,7 +867,7 @@ The ability to report collection-valued columns leverages the extensible type fa
 
 ### 3.11.1 Schema Extensions for Collection-valued Columns
 
-Collection-valued table columns are described in SQLColumns. Collection-valued result columns are described through SQLColAttribute(s)/SqlDescribeCol/SqlGetDescriptor.
+Collection-valued table columns are described in SQLColumns. Collection-valued result columns are described through SQLColAttribute(s)/SqlDescribeCol/SqlGetDescField.
 
 Collection-valued columns may be ordered or unordered.
 
@@ -877,7 +877,7 @@ For ordered array-valued columns, the value of the `DATA_TYPE` attributes is `SQ
 
 The remaining columns, including the `SQL_DATA_TYPE`, describe the type of the element within the collection.
 
-Additionally, clients may get the type of a collection-valued column by passing the name of the collection-valued column appended with “[]” (repeated, for nested collections), as the column name in SQLColumns/SQLTypeColumns.
+Additionally, clients may get the type of a collection-valued column by passing the name of the collection-valued column appended with “[]” (repeated, for nested collections), as the column name in SQLColumns/SQLStructuredTypeColumns.
 
 ### 3.11.2 Query Extensions for Collections
 
@@ -1064,7 +1064,7 @@ The application calls SQLNextColumn in order to retrieve the column of data curr
       SQLHSTMT StatementHandle,
       SQLUSMALLINT* Col_or_Param_Num);
 
-SQLNextColumn can first be called only after SQLFetch or SQLFetchScroll returns `SQL_DATA_AVAILABLE`, and as long as SQLNextColumn returns `SQL_DATA_AVAILABLE`.
+SQLNextColumn can first be called only after SQLFetch or SQLFetchScroll returns `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`, and as long as SQLNextColumn continues to return one of these values.
 
 The Driver Manager returns `HY010`, Function Sequence Error under the following conditions:
 
@@ -1072,7 +1072,7 @@ The Driver Manager returns `HY010`, Function Sequence Error under the following 
 
 2.  SQLFetch or SQLFetschScroll have not been called on the executed statement.
 
-3.  The most recent call to SQLFetch, SQLFetchScroll, or SQLNextColumn did not return `SQL_DATA_AVAILABLE`
+3.  The most recent call to SQLFetch, SQLFetchScroll, or SQLNextColumn did not return `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`
 
 4.  There is an asynchronously executing function called on this statement handle, or the connection associated with this statement handle, that has not completed.
 
@@ -1080,7 +1080,7 @@ The driver manager returns `HY010`, Function sequence error, from SQLSetPos if t
 
 ### 6.1.1 Usage
 
-While fetching a row that contains a column whose `str_len_or_indicator_ptr` contains `SQL_DATA_AT_FETCH`, when reading a dynamic column while `SQL_ATTR_DYNAMIC_COLUMNS` is true, or when encountering a length or type exception, depending on the value of [`SQL_ATTR_LENGTH_EXCEPTION`](#381-SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR) and [`SQL_ATTR_TYPE_EXCEPTION`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR), respectively, the driver returns `SQL_DATA_AVAILABLE` or `SQL_METADATA_CHANGED`, and the application calls SQLNextColumn in order to determine the ordinal of the next available column to be read.
+While fetching a row that contains a column whose `str_len_or_indicator_ptr` contains `SQL_DATA_AT_FETCH`, when reading a dynamic column while `SQL_ATTR_DYNAMIC_COLUMNS` is true, or when encountering a length or type exception, depending on the value of [`SQL_ATTR_LENGTH_EXCEPTION`](#381-SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR) and [`SQL_ATTR_TYPE_EXCEPTION`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR), respectively, the driver returns `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`, and the application calls SQLNextColumn in order to determine the ordinal of the next available column to be read.
 
 The application can use the returned `Col_or_Param_Num` to retrieve information about the available column or parameter, but must not change descriptor information relative to the descriptor header record or any descriptor records not associated with the returned `Col_or_Param_Num`.
 
