@@ -629,7 +629,7 @@ If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then columns in the ARD that don’t appl
 
 ### 3.9.2 Schema Extensions for Dynamic Columns
 
-If `SQL_ATTR_DYNAMIC_COLUMNS` is true, tables that support properties not defined in SQLColumns are returned from SQLTables using the new “`OPEN TABLE`” table type. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, such tables are returned with a table type of "`TABLE`".
+If `SQL_ATTR_DYNAMIC_COLUMNS` is true, tables that support properties not defined in SQLColumns are returned from SQLTables using the new `“OPEN TABLE”` table type. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, such tables are returned with a table type of `"TABLE"`.
 
 ### 3.9.3 Query Extensions for Dynamic Columns
 
