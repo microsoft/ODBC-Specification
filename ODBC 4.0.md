@@ -512,8 +512,8 @@ In order to be notified when an unbound column is available to be retrieved duri
 2.  App calls SQLFetch/SQLFetchScroll
     -   Driver begins populating the bindings
     -   Driver returns `SQL_DATA_AVAILABLE` return code from SQLFetch/SQLFetchScroll
-        1.  Calling SQLFetch/SQLFetchScroll after SQLFetch, SQLFetchScroll, or SQLNextColumn returns `SQL_DATA_AVAILABLE` skips the remaining columns and begins fetching the next row.
-        2.  Calling SQLCancel cancels the fetch operation and closes the cursor.
+        1. Calling SQLFetch or SQLFetchScroll in a data-available state results in a function sequence error. 
+        2. Calling SQLCloseCursor (or SQLFreeStmt(SQL_CLOSE)) cancels the fetch operation and closes the cursor.
 
 3.  App calls SQLNextColumn to find out which column is available. Applications must not assume that the columns are returned in any particular order.
     -   Driver returns the ordinal of the available column
@@ -534,7 +534,9 @@ In order to be notified when an unbound column is available to be retrieved duri
 
 A new SQL GetData Extension, `SQL_GD_CONCURRENT`, is added. 
 
-If the driver reports `SQL_GD_CONCURRENT`, the driver supports concurrent fetching of multiple columns using SQLGetData and/or nested handles. If the driver specifies `SQL_GD_ANY_ORDER` and does not specify `SQL_GD_CONCURRENT`, calling SQLGetData or retrieving data from a nested handle resets the position of any columns previously fetched using SQLGetData to the beginning and closes the cursor (but does not automatically free the hstmt) of any previously fetched nested columns for this row.
+If the driver reports `SQL_GD_CONCURRENT`, fetching partial data from one column (using SQLGetData) or on a nested statement handle does not affect the position or state of any other column or nested handle. If the driver specifies `SQL_GD_ANY_ORDER` and does not specify `SQL_GD_CONCURRENT`, calling SQLGetData or retrieving data from a nested handle resets the position of any columns previously fetched using SQLGetData to the beginning and closes the cursor (but does not automatically free the hstmt) of any previously fetched nested columns for this row.
+
+Note that SQL_GD_CONCURRENT does not imply that the driver supports multiple concurrent asynchronous requests associated with the same parent statement handle. The root statement handle defines the scope for concurrent asynchronous operations.
 
 ## 3.7 Variable Typed Columns
 Variable typed columns are columns whose type is unknown or may change on a row-by-row basis.
@@ -623,9 +625,11 @@ The default for this statement attribute is *False*.
 
 Data sources with fixed schemas always return *False* for this value. Attempting to set this value for such a data source returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02, Option Value Changed, and reading this value will continue to return *False*.
 
-If set to true, SQLFetch, SQLFetchScroll, SQL_NextColumn, SQLGetData, and SQLCloseCursor for nested statement handles return `SQL_DATA_AVAILABLE` if new columns are discovered/added to the IRD while retrieving results.
+If set to *True*, SQLFetch, SQLFetchScroll, SQL_NextColumn and SQLGetData return `SQL_DATA_AVAILABLE` if new columns are discovered/added to the IRD while retrieving results.
 
 If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then columns in the ARD that don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, then only known columns are allowed in a select list and only known columns are returned when \* is specified.
+
+Applications may change SQL_ATTR_DYNAMIC_COLUMNS from *True* to *False* at any time to ignore dynamic columns. Attempting to set `SQL_ATTR_DYNAMIC_COLUMNS` from *False* to *True* on a statement handle with an open cursor results in HY010, Function Sequence Error. 
 
 ### 3.9.2 Schema Extensions for Dynamic Columns
 
@@ -649,11 +653,11 @@ Result descriptor functions (SQLNumResultCols, SQLDescribeCol, SQLColAttribute(s
 
 If `SQL_ATTR_DYNAMIC_COLUMNS` is set to true, the driver can return dynamic columns as data-at-fetch columns when fetching a row.
 
-If the driver encounters a dynamic (unschematized) column that does not match any existing IRD records, the driver
+If the driver encounters a dynamic (unschematized) column that does not exactly match any existing IRD records, the driver
 
 1.  Creates a new IRD record for the column; this becomes a new, unbound column in the result. The application must bind the column, or set the `str_len_or_indicator_ptr` to `SQL_DATA_AT_FETCH`, in order to retrieve the value in subsequent calls to SQLFetch. Once added to the IRD, dynamic columns become "known columns". If the type and length information changes on subsequent rows, the driver may return SQL_METADATA_CHANGED based on the [`SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR). Alternatively, the driver may create additional IRD records with the same name for dynamic columns of different types. Once added, the descriptor fields are a permanent part of the descriptor until it is freed.
 
-2.  Returns `SQL_DATA_AVAILABLE` from SQLFetch, SQLFetchScroll, or SQLCloseCursor on a nested statement handle
+2.  Returns `SQL_DATA_AVAILABLE` from SQLFetch or SQLFetchScroll
 
     1.  Application calls [SQLNextColumn](#61-sqlnextcolumn) to retrieve the ordinal of the descriptor record that describes the column.
 
@@ -1072,11 +1076,11 @@ The Driver Manager returns `HY010`, Function Sequence Error under the following 
 
 2.  SQLFetch or SQLFetschScroll have not been called on the executed statement.
 
-3.  The most recent call to SQLFetch, SQLFetchScroll, or SQLNextColumn did not return `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`
+3.  The most recent call to SQLFetch, SQLFetchScroll, or SQLNextColumn on this statement handle did not return `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`
 
 4.  There is an asynchronously executing function called on this statement handle, or the connection associated with this statement handle, that has not completed.
 
-The driver manager returns `HY010`, Function sequence error, from SQLSetPos if the most recent call to SQLFetch, SQLFetchScroll, or SQLNextColumn returned a value other than `SQL_SUCCESS` or `SQL_SUCCESS_WITH_INFO`.
+The driver manager returns `HY010`, Function sequence error, from SQLSetPos, SQLFetch, or SQLFetchScroll if the most recent call to SQLFetch, SQLFetchScroll, or SQLNextColumn returned `SQL_DATA_AVAILABLE`.
 
 ### 6.1.1 Usage
 
@@ -1084,9 +1088,9 @@ While fetching a row that contains a column whose `str_len_or_indicator_ptr` con
 
 The application can use the returned `Col_or_Param_Num` to retrieve information about the available column or parameter, but must not change descriptor information relative to the descriptor header record or any descriptor records not associated with the returned `Col_or_Param_Num`.
 
-Once all data-at-fetch columns have been returned, SQLNextColumn returns `SQL_SUCCESS` or `SQL_SUCCESS_WITH_INFO` with any valid SQLState from SQLFetch/SQLFetchScroll.
+Once all columns have been processed, SQLNextColumn returns `SQL_SUCCESS` or `SQL_SUCCESS_WITH_INFO` with any valid SQLState from SQLFetch/SQLFetchScroll.
 
-Calling SQLNextColumn with a null pointer for `Col_or_Param_Num` skips the rest of the `DATA_AT_FETCH` columns for this row.
+Calling SQLNextColumn with a null pointer for `Col_or_Param_Num` populates any remaining bound columns, skipping any `DATA_AT_FETCH` or unbound dynamic columns and treating any type or length exceptions according to `SQL_TE_CONTINUE` and `SQL_LE_CONTINUE`, respectively, for the remainder of this row (or row array in the case of array fetch).
 
 ## 6.2 SQLGetNestedHandle
 
@@ -1139,7 +1143,7 @@ Multiple calls to SQLGetNestedHandle for the same ParentStatementHandle and Col_
 
 Unless the [SQL_GD_CONCURRENT](#361-SQL_GD_CONCURRENT-bit-for-sql_getdata_extensions) bit within SQL_GETDATA_EXTENSIONS is specified, a subsequent call to retrieve data using SQLGetData, SQLFetch, SQLFetchScroll, or SQLNextColumn on the parent handle or a different nested statement handle implicitly closes the statement handle. If `SQL_GD_CONCURRENT` is specified, a subsequent call to retrieve data on the child statement handle does not affect any other statement handle.
 
-A subsequent call to SQLFreeHandle for a statement handle implicitly closes and frees all child statement handles.
+Closing a statement handle implicitly closes and frees all child statement handles.
 
 Calling SQLGetNestedHandle for a non-structured or collection valued column, or calling SQLGetData on a structured or collection-valued column, returns `SQL_ERROR` with SQLState `07009`, Invalid descriptor index.
 
