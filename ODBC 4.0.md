@@ -517,7 +517,7 @@ In order to be notified when an unbound column is available to be retrieved duri
 
 3.  App calls SQLNextColumn to find out which column is available. Applications must not assume that the columns are returned in any particular order.
     -   Driver returns the ordinal of the available column
-    -   For row array sizes greater than 1, the row for which the column is available can be determined through the `SQL_ATTR_ROWS_FETCHED_PTR` statement attribute. The client cannot assume that rows prior to the current value of `SQL_ATTR_ROWS_FETCHED_PTR` are complete until the entire fetch sequence has completed and SQLFetch or SQLNextColumn returns a value other than `SQL_DATA_AVAILABLE`.
+    -   For rowset sizes greater than 1, the row for which the column is available can be determined through the `SQL_ATTR_ROWS_FETCHED_PTR` statement attribute. The client cannot assume that rows prior to the current value of `SQL_ATTR_ROWS_FETCHED_PTR` are complete until the entire fetch sequence has completed and SQLFetch or SQLNextColumn returns a value other than `SQL_DATA_AVAILABLE`.
 
 4.  App optionally retrieves the data by calling SQLGetData, or by fetching the data on a nested handle for nested collections and structured columns.
 
@@ -1090,7 +1090,7 @@ The application can use the returned `Col_or_Param_Num` to retrieve information 
 
 Once all columns have been processed, SQLNextColumn returns `SQL_SUCCESS` or `SQL_SUCCESS_WITH_INFO` with any valid SQLState from SQLFetch/SQLFetchScroll.
 
-Calling SQLNextColumn with a null pointer for `Col_or_Param_Num` populates any remaining bound columns, skipping any `DATA_AT_FETCH` or unbound dynamic columns and treating any type or length exceptions according to `SQL_TE_CONTINUE` and `SQL_LE_CONTINUE`, respectively, for the remainder of this row (or row array in the case of array fetch).
+Calling SQLNextColumn with a null pointer for `Col_or_Param_Num` populates any remaining bound columns, skipping any `DATA_AT_FETCH` or unbound dynamic columns and treating any type or length exceptions according to `SQL_TE_CONTINUE` and `SQL_LE_CONTINUE`, respectively, for the remainder of the current rowset.
 
 ## 6.2 SQLGetNestedHandle
 
