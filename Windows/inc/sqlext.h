@@ -34,9 +34,9 @@ extern "C" {                         /* Assume C declarations for C++ */
 #endif  /* __cplusplus */
 
 /* generally useful constants */
-#define SQL_SPEC_MAJOR     3        /* Major version of specification  */
-#define SQL_SPEC_MINOR     80       /* Minor version of specification  */
-#define SQL_SPEC_STRING   "03.80"   /* String constant for version */
+#define SQL_SPEC_MAJOR     4        /* Major version of specification  */
+#define SQL_SPEC_MINOR     00       /* Minor version of specification  */
+#define SQL_SPEC_STRING   "04.00"   /* String constant for version */
 
 #define SQL_SQLSTATE_SIZE   5   /* size of SQLSTATE */
 
@@ -305,7 +305,7 @@ typedef SQLTCHAR SQLSTATE[SQL_SQLSTATE_SIZE+1];
 #define SQL_ATTR_DYNAMIC_COLUMNS 		    31
 #define SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR 	32
 #define SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR 	33
-#endif /* ODBCVER >= 0x0480 */
+#endif /* ODBCVER >= 0x0400 */
 
 #if (ODBCVER < 0x0300)
 #define SQL_STMT_OPT_MAX                SQL_ROW_NUMBER
@@ -737,7 +737,6 @@ typedef SQLTCHAR SQLSTATE[SQL_SQLSTATE_SIZE+1];
 #define SQL_API_SQLDESCRIBEPARAM    58
 #define SQL_API_SQLDRIVERCONNECT    41
 #define SQL_API_SQLDRIVERS          71
-#define SQL_API_SQLPRIVATEDRIVERS   79
 #define SQL_API_SQLEXTENDEDFETCH    59
 #define SQL_API_SQLFOREIGNKEYS      60
 #define SQL_API_SQLMORERESULTS      61
@@ -752,9 +751,10 @@ typedef SQLTCHAR SQLSTATE[SQL_SQLSTATE_SIZE+1];
 #define SQL_API_SQLTABLEPRIVILEGES  70
 
 #if (ODBCVER >= 0x0400)
-#define SQL_API_SQLGETNESTEDHANDLE       71
-#define SQL_API_SQLSTRUCTREDTYPES        72
-#define SQL_API_SQLSTRUCTREDTYPECOLUMNS  73
+#define SQL_API_SQLGETNESTEDHANDLE       74
+#define SQL_API_SQLSTRUCTREDTYPES        75
+#define SQL_API_SQLSTRUCTREDTYPECOLUMNS  76
+#define SQL_API_SQLNEXTCOLUMN            77
 #endif /* ODBCVER >= 0x0400 */
 
 /*-------------------------------------------*/
@@ -2244,20 +2244,6 @@ SQLRETURN SQL_API SQLDrivers(
     _Out_opt_
     SQLSMALLINT       *pcchDrvrAttr);
 
-SQLRETURN SQL_API SQLPrivateDrivers(
-    SQLHENV            henv,
-    SQLUSMALLINT       fDirection,
-    _Out_writes_opt_(cchDriverDescMax)
-    SQLCHAR           *szDriverDesc,
-    SQLSMALLINT        cchDriverDescMax,
-    _Out_opt_
-    SQLSMALLINT       *pcchDriverDesc,
-    _Out_writes_opt_(cchDrvrAttrMax)
-    SQLCHAR           *szDriverAttributes,
-    SQLSMALLINT        cchDrvrAttrMax,
-    _Out_opt_
-    SQLSMALLINT       *pcchDrvrAttr);
-
 SQLRETURN SQL_API SQLBindParameter(
     SQLHSTMT           hstmt,
     SQLUSMALLINT       ipar,
@@ -2292,6 +2278,8 @@ SQLRETURN SQL_API SQLStructuredTypeColumns(
 	_In_reads_opt_(NameLength3) SQLCHAR *TypeName, SQLSMALLINT NameLength3,
 	_In_reads_opt_(NameLength4) SQLCHAR *ColumnName, SQLSMALLINT NameLength4);
 
+SQLRETURN SQL_API SQLNextColumn(SQLHSTMT StatementHandle,
+    _Out_ SQLUSMALLINT *ColumnCount); 
 #endif /* ODBCVER >= 0x0400 */
 
 #endif /* RC_INVOKED */
