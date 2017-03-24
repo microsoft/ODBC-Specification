@@ -691,7 +691,7 @@ Named structured types are enumerated through the new [SQLStructuredTypes](#63-s
 
 Anonymous types cannot be enumerated through SQLStructuredTypes, but their structure can be described by passing a path as the `TABLE_NAME` to SQLColumns, or the `UDT_NAME` to SQLStructuredTypeColumns. The dot-separated path starts with the table or named structural type name in which the anonymous type is used, can traverse an arbitrary number of `SQL_ROW` columns, and must terminate on a column whose type is `SQL_ROW`. Any identifiers in the path containing the dot character (.) must be quoted using the appropriate identifier quote character.
 
-If calling SQLColumns or SQLStructuredColumns in this way returns `SQL_ROW` as the value of the `DATA_TYPE` and `SQL_DATA_TYPE` columns, then the column is an untyped structural column. The members of an untyped structured column are treated as [dynamic columns](#39-dynamic-columns) by the client.
+If calling SQLColumns or SQLStructuredTypeColumns in this way returns `SQL_ROW` as the value of the `DATA_TYPE` and `SQL_DATA_TYPE` columns, then the column is an untyped structural column. The members of an untyped structured column are treated as [dynamic columns](#39-dynamic-columns) by the client.
 
 #### 3.10.1.1 Additional Columns in SQLColumns
 
