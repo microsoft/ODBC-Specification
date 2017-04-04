@@ -1056,7 +1056,6 @@ The ODBC 4.0 Driver Manager will map the following InfoTypes and attributes for 
 | `SQL_ATTR_DYNAMIC_COLUMNS`           | If not supported by the driver, SQLGetStmtAttr returns `FALSE` and SQLSetStmtAttr  returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02.  |
 | `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` | If not supported by the driver, SQLGetStmtAttr returns `SQL_LE_CONTINUE` and SQLSetStmtAttr with a value other than `SQL_LE_CONTINUE` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented |
 | `SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`   | If not supported by the driver, SQLGetStmtAttr returns SQL_TE_ERROR and SQLSetStmtAttr with a value other than `SQL_TE_ERROR` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented  |
-| `SQL_ATTR_PRIVATE_DRIVER_PATH`	| If not supported by the driver, SQLGetEnvAttr returns the default path and SQLSetEnvAttr returns `SQL_ERROR`	|
 
 # 6 New Functions
 The following functions are added in ODBC 4.0.
