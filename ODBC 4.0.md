@@ -49,7 +49,7 @@ In order to be advertised as an ODBC 3.x driver, and returned from the control p
 
 The flattened view may not be comprehensive (there may be data not available through the relational view, data modeled as strings representing structured content of a particular format, the data may not be updatable through that view, etc.) but existing ODBC 3.x clients must be able to meaningfully interact with the data.
 
-The convenience to existing clients of representing hierarchical data through a relational lens sacrifices fidelity. Applications that specify a value for the `SQL_ATTR_ODBC_VERSION` environment attribute of 4.x or greater may see a hierarchical structure containing row, collection, and untyped data values.
+The convenience to existing clients of representing hierarchical data through a relational lens sacrifices fidelity. Applications that specify a value for the `SQL_ATTR_ODBC_VERSION` environment attribute of 4.x or greater may see a hierarchical structure containing row, collection, and variant-typed data values.
 
 For more information on compatibility, see [Section 5, Compatibility](#5-compatibility)
 
@@ -399,9 +399,9 @@ Drivers advertise support for this escape clause through the `SQL_RETURN_ESCAPE_
 
 #### 3.3.5.3 Format Clause
 
-The *ODBC-format-escape* clause enables clients to return results as a JSON-formatted string:
+The *ODBC-format-escape* clause enables clients to return results as a JSON-formatted string.
 
-*ODBC-format-escape* ::= RETURNING *data-type* *json-format-clause*
+*ODBC-format-escape* ::= *ODBC-esc-initiator* RETURNING *data-type* *json-format-clause* *ODBC-esc-terminator*
 
 *json-format-clause* ::= FORMAT JSON \[ENCODING {UTF8 | UTF16 | UTF32}\]
 
@@ -421,10 +421,19 @@ ODBC clients use the `SQL_NOSCAN` statement attribute to specify that the comman
 
 The *ODBC-native-escape* clause enables clients to embed native syntax within a SQL92 statement:
 
-*ODBC-native-escape* ::=
-     *ODBC-esc-initiator* native '*command-text*' \[*returning-clause*\] *ODBC-esc-terminator*
+*ODBC-native-escape* ::= *ODBC-esc-initiator* native '*command-text*' \[*passing-clause*\] \[*results-clause*\] *ODBC-esc-terminator*
 
-*returning-clause* ::= RETURNING (*type* \[, *type*\]…) \[*json-format-clause*\]
+*passing-clause* ::= PASSING ( *argument-definition* \[, *argument-definition*\]… )
+
+*argument-definition* ::= *argument-value* AS *identifier*
+
+*argument-value* ::= *literal* | *parameter-marker* | *expression*
+
+*results-clause* ::= *columns-clause* | *scalar-returning-clause* 
+
+*columns-clause* ::= COLUMNS ( *field-definition* \[, *field-definition*\]… )
+
+*scalar-returning-clause* ::= RETURNING *data-type* \[*json-format-clause*\] 
 
 *type* ::= {*data-type* | ROW ( *field-definition* \[, *field-definition*\]… ) } \[ARRAY | MULTISET\]
 
@@ -432,11 +441,9 @@ The *ODBC-native-escape* clause enables clients to embed native syntax within a 
 
 Where *command-text* is a textual query in the native language of the service. Any parenthesis not within single-quotation marks within command-text must be balanced.
 
-The *returning-clause* is required for retrieving results from the native syntax and when embedding the native syntax in place of a query expression within a standard SQL statement.
+The *results-clause* is required for retrieving results from the native syntax and when embedding the native syntax in place of a query expression within a standard SQL statement.
 
 If *json-format-clause* is specified, *type* must be a string or binary type.
-
-Single question marks within the native command not within single-quotation marks are interpreted as parameter markers. In order to pass an unquoted question mark as part of the native syntax, the application must double the question mark. The driver will convert unquoted doubled question marks to single question marks when evaluating the native command.
 
 Single quotation marks within the native syntax must be doubled. The driver replaces two adjacent single quotations marks within the native syntax with a single quotation mark. A single quotation mark terminates the native command text.
 
@@ -471,7 +478,7 @@ The following are added to the list of ODBC reserved words:
 
 ## 3.4 String Format
 
-A new SQLCHAR\*-valued descriptor field, `SQL_DESC_MIME_TYPE`, is added to \[ALL\] descriptors to specify the format of a field or parameter whose `SQL_DESC_TYPE` specifies a string or binary type. The value of this descriptor field is the mime type of the data (i.e., application/json, application/xml,…).
+A new SQLCHAR\*-valued descriptor field, `SQL_DESC_MIME_TYPE`, is added to \[ALL\] descriptors to specify the format of a field or parameter whose `SQL_DESC_TYPE` specifies a string or binary type. The value of this descriptor field is the mime type of the data (i.e., application/json, application/xml,…), or an empty string if the field or parameter is not a string or binary type, or if the format is not known.
 
 ## 3.5 Schema Inference
 
@@ -625,7 +632,7 @@ The default for this statement attribute is *False*.
 
 Data sources with fixed schemas always return *False* for this value. Attempting to set this value for such a data source returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02, Option Value Changed, and reading this value will continue to return *False*.
 
-If set to *True*, SQLFetch, SQLFetchScroll, SQL_NextColumn and SQLGetData return `SQL_DATA_AVAILABLE` if new columns are discovered/added to the IRD while retrieving results.
+If set to *True*, SQLFetch, SQLFetchScroll and SQL_NextColumn return `SQL_DATA_AVAILABLE` if new columns are discovered/added to the IRD while retrieving results.
 
 If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then columns in the ARD that don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, then only known columns are allowed in a select list and only known columns are returned when \* is specified.
 
@@ -685,13 +692,9 @@ The ability to report structured columns leverages the extensible type facility 
 
 ### 3.10.1 Schema Extensions for Structured Columns
 
-Structured columns may have a named typed, an unnamed (anonymous) type, or may be untyped.
+Structured columns may have a named type, whose structure can be described in [SQLStructuredTypeColumns](#64-sqlstructuredtypecolumns).
 
-Named structured types are enumerated through the new [SQLStructuredTypes](#63-sqlstructuredtypes) schema function. Their structure is described in [SQLStructuredTypeColumns](#64-sqlstructuredtypecolumns).
-
-Anonymous types cannot be enumerated through SQLStructuredTypes, but their structure can be described by passing a path as the `TABLE_NAME` to SQLColumns, or the `UDT_NAME` to SQLStructuredTypeColumns. The dot-separated path starts with the table or named structural type name in which the anonymous type is used, can traverse an arbitrary number of `SQL_ROW` columns, and must terminate on a column whose type is `SQL_ROW`. Any identifiers in the path containing the dot character (.) must be quoted using the appropriate identifier quote character.
-
-If calling SQLColumns or SQLStructuredColumns in this way returns `SQL_ROW` as the value of the `DATA_TYPE` and `SQL_DATA_TYPE` columns, then the column is an untyped structural column. The members of an untyped structured column are treated as [dynamic columns](#39-dynamic-columns) by the client.
+Structured columns with no backing type can be described by passing a path as the `TABLE_NAME` to SQLColumns, or the `UDT_NAME` to SQLStructuredTypeColumns. The dot-separated path starts with the table or named structural type name in which the anonymous type is used, can traverse an arbitrary number of `SQL_ROW` columns, and must terminate on a column whose type is `SQL_ROW`. Any identifiers in the path containing the dot character (.) must be quoted using the appropriate identifier quote character.
 
 #### 3.10.1.1 Additional Columns in SQLColumns
 
@@ -762,7 +765,7 @@ Note: ANSI also defines `USER_DEFINED_TYPE_CODE` (1045) with a value of “`DIST
 
 For structured columns not described by a named type, the value of the `SQL_DESC_TYPE` or `SQL_DESC_CONCISE_TYPE` descriptor fields is `SQL_ROW`.
 
-Calling GetNestedHandle for an unnamed structured type returns a statement handle with descriptor fields describing any known columns of the nested type. The members of an untyped structured column are treated as [dynamic columns](#39-dynamic-columns) by the client.
+Calling GetNestedHandle for an unnamed structured type returns a statement handle with descriptor fields describing any known columns of the nested type.
 
 ### 3.10.4 Write Extensions for Structured Columns
 
