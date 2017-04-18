@@ -63,7 +63,7 @@ Drivers registered through the ODBC setup utility are available to all applicati
 
 ODBC 4.0 enables applications to use their own private drivers. Such drivers are not visible to other applications and may support different versions from applications using the same driver.
 
-Private drivers are not registered using the ODBC setup utility. The Driver Manager loads private drivers by looking in the application’s install directory for a folder named “ODBC Drivers”. Each private driver is represented in that directory by a .ini file whose name is the *driver-name* with the “.ini” suffix.
+Private drivers are not registered using the ODBC setup utility. The new `SQL_ATTR_PRIVATE_DRIVER_PATH` environment attribute specifies a path, ending in "ODBC Drivers", which will be implicitly checked for private drivers. By default, this path is set to by appending "ODBC Drivers" to the path provided by [GetModuleFileName](https://msdn.microsoft.com/en-us/library/windows/desktop/ms683197) with a NULL hModule. Note that the default path allows for simply dropping a private driver directory into an application directory in most cases, but scenarios where the running process is not in the same directory as the application (such as when using a test harness) will require calling SQLSetEnvAttr to set the path. Each private driver is represented in that directory by an .ini file whose name is the *driver-name* with the “.ini” suffix.
 
 The .ini file follows the [windows .ini file format](https://en.wikipedia.org/wiki/INI_file). It is a text file whose first line is a section header containing the name of the driver, enclosed in square brackets, and followed by keyword=value pairs, one per line. Valid keyword-value pairs are the [subkeys](https://msdn.microsoft.com/en-us/library/ms709431(v=vs.85).aspx) allowed for the driver specific section under ODBCINST.INI, along with a new “ApplicationKey” key-value pair which, if specified, is passed by the driver manager to the driver in a call to SetEnvAttr with the new `SQL_ATTR_APPLICATION_KEY` attribute. The driver developer can use this to validate that the calling application is permitted to use the driver, for example, by using a signed hash of the application’s publisher validated against the calling application at runtime.
 
@@ -696,7 +696,7 @@ Structured columns may have a named type, whose structure can be described in [S
 
 Structured columns with no backing type can be described by passing a path as the `TABLE_NAME` to SQLColumns, or the `UDT_NAME` to SQLStructuredTypeColumns. The dot-separated path starts with the table or named structural type name in which the anonymous type is used, can traverse an arbitrary number of `SQL_ROW` columns, and must terminate on a column whose type is `SQL_ROW`. Any identifiers in the path containing the dot character (.) must be quoted using the appropriate identifier quote character.
 
-#### 3.10.1.1 Additional Columns in SQLColumns
+
 
 The following columns are added, in order, to the set of columns returned by SQLColumns when requested by ODBC 4.0 or greater applications:
 
@@ -1057,8 +1057,8 @@ The ODBC 4.0 Driver Manager will map the following InfoTypes and attributes for 
 |--------------------------------------|------------------------------------------------------------|
 | `SQL_SCHEMA_INFERENCE`               | If not supported by the driver, SQLGetInfo returns `FALSE` |
 | `SQL_ATTR_DYNAMIC_COLUMNS`           | If not supported by the driver, SQLGetStmtAttr returns `FALSE` and SQLSetStmtAttr  returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02.  |
-| `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` | If not supported by the driver, SQLGetStmtAttr returns returns `SQL_LE_CONTINUE` and SQLSetStmtAttr with a value other than `SQL_LE_CONTINUE` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented |
-| `SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`   | If not supported by the driver, SQLGetStmtAttr returns returns SQL_TE_ERROR and SQLSetStmtAttr with a value other than `SQL_TE_ERROR` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented  |
+| `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` | If not supported by the driver, SQLGetStmtAttr returns `SQL_LE_CONTINUE` and SQLSetStmtAttr with a value other than `SQL_LE_CONTINUE` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented |
+| `SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`   | If not supported by the driver, SQLGetStmtAttr returns SQL_TE_ERROR and SQLSetStmtAttr with a value other than `SQL_TE_ERROR` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented  |
 
 # 6 New Functions
 The following functions are added in ODBC 4.0.
