@@ -6,6 +6,7 @@ Table of Contents
 
 - [1 Overview](#1-overview)
 - [2 Compatibility with ODBC 3.x](#2-compatibility-with-odbc-3x)
+-  - [2.1 ODBC 3.x Errata](#21-odbc-3x-errata)
 - [3 Design](#3-design)
    - [3.1 Private Drivers](#31-private-drivers)
    - [3.2 Web Authorization](#32-web-authorization)
@@ -52,6 +53,19 @@ The flattened view may not be comprehensive (there may be data not available thr
 The convenience to existing clients of representing hierarchical data through a relational lens sacrifices fidelity. Applications that specify a value for the `SQL_ATTR_ODBC_VERSION` environment attribute of 4.x or greater may see a hierarchical structure containing row, collection, and variant-typed data values.
 
 For more information on compatibility, see [Section 5, Compatibility](#5-compatibility)
+
+# 2.1 ODBC 3.x Errata
+The following errata are not intended to describe new functionality but to clarify apply to clarify existing expected ODBC behavior.
+
+## 2.1.1 Types of Data Supported by SQLGetData
+While the current ODBC Specification calls out the use of *TargetType* for specifying the type of data to be retrieved in SQLGetData, which may differ from the type in the APD or ARD, it is not clear that, when retrieving string or binary data in parts, the same C data type should be specified for each part. 
+
+## 2.1.1 SQLGetData and Variable Length Data
+The current ODBC Specification states the following:
+
+> When the driver returns fixed-length data, such as an integer or a date structure, the driver ignores BufferLength and assumes the buffer is large enough to hold the data. It is therefore important for the application to allocate a large enough buffer for fixed-length data or the driver will write past the end of the buffer.
+
+In this context, "fixed-length data" refers to "non-character or binary data". As described in "Retrieving Variable-Length Data In Parts", SQLGetData can be used to retrieve any character or binary data in pieces, and drivers should always respect BufferLength when writing string or binary data.
 
 # 3 Design
 
@@ -152,7 +166,6 @@ ODBC 4.0 defines the following new Connection string key/value pairs:
 `Auth_Type` defines common types of authentication. Drivers that support multiple types of authentication can request `Auth_Type` in the output connection string returned by BrowseConnect in order to allow the client to select from an enumerated list of authentication mechanisms.
 
 While the driver can return custom values, the following common values should be used where applicable:
-
 
  **Keyword** | **Description** 
 -------------|---------------
@@ -357,6 +370,8 @@ The *ODBC-return-escape* clause returns a table containing information from inse
 
 For Inserts and Updates, the returned values are the values of the affected rows following the insert or update operation. For delete operations, the returned values represent the values of the rows at the time they were deleted.
 
+If no rows are affected by the statement, an empty result is returned.
+
 For example, the following statement returns a table containing the columns named "OrderId", "Item" and "Total" of a newly inserted row:
 
 > {return OrderId, Item, Total from 'INSERT INTO Orders(Item, Price, Quantity) VALUES (''San Juan Islands Map'',24,2)'}
@@ -372,8 +387,6 @@ Single quotation marks within *vendor-dml-statement* must be doubled. The driver
 If an array of parameter values is specified, then whether there is a result set for each set of parameter values or a single result that merges the results from each set of parameter values is defined by the `SQL_PARAM_ARRAY_SELECTS` SQLGetInfo *InfoType*.
 
 If multiple rows are specified in an INSERT INTO...VALUES statement, or an array of parameter values are specified, then the order of rows returned matches the order of values specified. In all other cases, the order of returned rows is indeterminate.  
-
-If no rows are affected by the statement, an empty result is returned.
 
 The driver may limit the columns in the select-list to include only the best row id columns returned by SQLSpecialColumns, as specified in the `SQL_RETURN_ESCAPE_CLAUSE` *InfoType*.
 
@@ -425,7 +438,7 @@ The *ODBC-native-escape* clause enables clients to embed native syntax within a 
 
 *passing-clause* ::= PASSING ( *argument-definition* \[, *argument-definition*\]… )
 
-*argument-definition* ::= *argument-value* AS *identifier*
+*argument-definition* ::= *argument-value* \[(*native-type*\)] \[AS *identifier*\]
 
 *argument-value* ::= *literal* | *parameter-marker* | *expression*
 
@@ -433,13 +446,15 @@ The *ODBC-native-escape* clause enables clients to embed native syntax within a 
 
 *columns-clause* ::= COLUMNS ( *field-definition* \[, *field-definition*\]… )
 
-*scalar-returning-clause* ::= RETURNING *data-type* \[*json-format-clause*\] 
+*scalar-returning-clause* ::= RETURNING *type* \[*json-format-clause*\] 
 
 *type* ::= {*data-type* | ROW ( *field-definition* \[, *field-definition*\]… ) } \[ARRAY | MULTISET\]
 
 *field-definition* ::= *field-name type*
 
-Where *command-text* is a textual query in the native language of the service. Any parenthesis not within single-quotation marks within command-text must be balanced.
+Where *command-text* is a textual query in the native language of the service, and *native-type* is the native type of the argument.  If *native-type* is not provided, the driver should attempt to use a default type (generally string) which may fail if the native syntax is unable to perform the necessary conversion.
+
+Whether arguments in the *passing-clause* must be named is dependent upon the underlying native syntax.
 
 The *results-clause* is required for retrieving results from the native syntax and when embedding the native syntax in place of a query expression within a standard SQL statement.
 
@@ -510,32 +525,37 @@ Applications can efficiently retrieve large data values that appear in any order
 
 In order to be notified when an unbound column is available to be retrieved during the fetch operation:
 
-1.  The application calls SQLBindCol (or equivalent SQLDescField/SQLDescRec), specifying the following:
+1. For each regularly bound column, an ODBC 4.0 application calls SQLBindCol (or equivalent SQLDescField/SQLDescRec), specifying the following:
+    -   `ColumnNumber` is the number of the column to be bound
+    -   `TargetType` is the type of the column
+    -   `TargetValuePtr` and `BufferLength` are the buffer and length for the bound value
+    -   `StrLen_or_IndPtr` is set to a buffer containing any value other than `SQL_DATA_AT_FETCH` (typically this will contain the indicator value from the previous row, and can be initialized by the client to `SQL_DATA_UNAVAILABLE`).
+
+2. For each column to be retrieved at fetch time, the application calls SQLBindCol (or equivalent SQLDescField/SQLDescRec), specifying the following:
     -   `ColumnNumber` is the number of the column to be retrieved using SQLGetData/SQLGetNestedData
     -   `TargetType` is the type of the column
     -   `TargetValuePtr` and `BufferLength` are ignored
     -   `StrLen_or_IndPtr` is set to a buffer containing `SQL_DATA_AT_FETCH`
 
-2.  App calls SQLFetch/SQLFetchScroll
+3.  App calls SQLFetch/SQLFetchScroll
     -   Driver begins populating the bindings
     -   Driver returns `SQL_DATA_AVAILABLE` return code from SQLFetch/SQLFetchScroll
         1. Calling SQLFetch or SQLFetchScroll in a data-available state results in a function sequence error. 
         2. Calling SQLCloseCursor (or SQLFreeStmt(SQL_CLOSE)) cancels the fetch operation and closes the cursor.
 
-3.  App calls SQLNextColumn to find out which column is available. Applications must not assume that the columns are returned in any particular order.
+4.  App calls SQLNextColumn to find out which column is available. Applications must not assume that the columns are returned in any particular order.
     -   Driver returns the ordinal of the available column
     -   For rowset sizes greater than 1, the row for which the column is available can be determined through the `SQL_ATTR_ROWS_FETCHED_PTR` statement attribute. The client cannot assume that rows prior to the current value of `SQL_ATTR_ROWS_FETCHED_PTR` are complete until the entire fetch sequence has completed until the initial fetch or a subsequent call to SQLNextColumn returns a value other than `SQL_DATA_AVAILABLE`.
 
-4.  App optionally retrieves the data by calling SQLGetData, or by fetching the data on a nested handle for nested collections and structured columns.
+5.  If rowset size is 1, the app can update the binding information for the column only, which is used in the next call to SQLFetch/SQLFetchScroll.
 
-5.  App optionally specifies binding information for the column.
+6.  App optionally retrieves the data by calling SQLGetData or a nested handle, as appropriate.
 
-6.  App calls [SQLNextColumn](#61-sqlnextcolumn) to continue fetching the current row
-	-	If the column has been bound but not retrieved using SQLGetData it is retrieved into the bound buffer, otherwise the binding is skipped for this row.
+7.  App calls [SQLNextColumn](#61-sqlnextcolumn) to continue fetching the current row
     -   Driver returns `SQL_DATA_AVAILABLE`, along with the ordinal of the next column available to be retrieved, if additional columns are available
     -   Driver returns `SQL_SUCCESS` or `SQL_SUCCESS_WITH_INFO` when all columns for which a binding has been specified have been retrieved. The application must not assume any bindings have been populated until SQLNextColumn returns `SQL_SUCCESS` or `SQL_SUCCESS_WITH_INFO`.
 
-7.  App can call SQLGetData, or retrieve nested data, for additional columns beyond the last bound column, or subject to the ordering constraints of the driver.
+8.  App can call SQLGetData, or retrieve nested data, for additional columns beyond the last bound column, or subject to the ordering constraints of the driver.
 
 ### 3.6.1 `SQL_GD_CONCURRENT` bit for `SQL_GETDATA_EXTENSIONS`
 
@@ -612,7 +632,7 @@ When the driver returns `SQL_MORE_DATA`, the application calls SQLNextColumn in 
 The new `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` is a `SQL_USMALLINT` value that allows the client to control how string and binary overflows are handled when retrieving bound values.
 
 * **SQL\_LE\_CONTINUE** – (Default) For string or binary values larger than the bound buffer length, set the `str_type_or_ind_ptr` value to the total length available, if known, otherwise `SQL_NO_TOTAL`. When the driver completes fetching the row/executing the statement it will return `SQL_SUCCESS_WITH_INFO` with a `SQLSTATE` of `01004`, String data, right truncated.
-* **SQL\_LE\_REPORT** – Return `SQL_MORE_DATA` when the string or binary value of a row or parameter does not fit the bound buffer. The application can retrieve the remainder of the column/output parameter using SQLGetData, and then call SQLNextColumn or SQLParamData, as appropriate, to continue processing.
+* **SQL\_LE\_REPORT** – Return `SQL_MORE_DATA` when the string or binary value of a row or parameter does not fit the bound buffer. The application can use SQLGetData to retrieve the remainder of the column/output parameter using the SQL_ARD_TYPE or SQL_APD_TYPE (or the equivalent C type), as appropriate, and then call SQLNextColumn or SQLParamData, as appropriate, to continue processing.
 
 ## 3.9 Dynamic Columns
 
@@ -634,7 +654,7 @@ Data sources with fixed schemas always return *False* for this value. Attempting
 
 If set to *True*, SQLFetch, SQLFetchScroll and SQL_NextColumn return `SQL_DATA_AVAILABLE` if new columns are discovered/added to the IRD while retrieving results.
 
-If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then columns in the ARD that don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, then only known columns are allowed in a select list and only known columns are returned when \* is specified.
+If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then bound columns in the ARD that don't specify `SQL_DATA_AT_FETCH` and don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, then only known columns are allowed in a select list and only known columns are returned when \* is specified.
 
 Applications may change SQL_ATTR_DYNAMIC_COLUMNS from *True* to *False* at any time to ignore dynamic columns. Attempting to set `SQL_ATTR_DYNAMIC_COLUMNS` from *False* to *True* on a statement handle with an open cursor results in HY010, Function Sequence Error. 
 
@@ -668,11 +688,13 @@ If the driver encounters a dynamic (unschematized) column that does not exactly 
 
     1.  Application calls [SQLNextColumn](#61-sqlnextcolumn) to retrieve the ordinal of the descriptor record that describes the column.
 
-    2.  Application optionally calls SQLBindCol (or equivalent) for the column, or retrieves the data directly using SQLGetData or a nested handle, as appropriate. If array binding is used, then offsets are calculated from the first row and the driver sets the `str_len_or_indicator_ptr` of unused bound columns to `SQL_DATA_UNAVAILABLE` when the entire fetch operation for the array of rows completes.
+    2.  The application optionally retrieves the data using SQLGetData or a nested handle, as appropriate.
+  
+    3.  If rowset size = 1, the application can optionally call SQLBindCol (or equivalent) to bind the column for subsequent calls to SQLFetch/SQLFetchScroll.
 
-    3.  Application calls SQLNextColumn to continue fetching the current row. If SQLGetData has not been called for the column then any binding is applied, otherwise the column is skipped and processing continues for any remaining columns in the row.
+    3.  Application calls SQLNextColumn to continue fetching the current row.
 
-Once discovered, dynamic columns can be bound like any other column. If a bound dynamic column does not exist for a row, the driver sets its `str_len_or_indicator_ptr` to `SQL_DATA_UNAVAILABLE`. If `str_len_or_indicator_ptr` is null for a dynamic column that doesn't exist for the current row, SQLFetch, SQLFetchScroll, or SQLNextColumn returns an error (22002, Indicator variable required but not supplied).
+Once discovered, dynamic columns can be bound like any other column. If a bound dynamic column whose `str_len_or_indicator_ptr` is not set to `SQL_DATA_AT_FETCH` does not exist for a row, the driver sets its `str_len_or_indicator_ptr` to `SQL_DATA_UNAVAILABLE`. If `str_len_or_indicator_ptr` is null for such a bound dynamic column that doesn't exist for the current row, SQLFetch, SQLFetchScroll, or SQLNextColumn returns an error (22002, Indicator variable required but not supplied).
 
 If the driver returns `SQL_DATA_AVAILABLE`, the application must not assume that any bound columns have been populated, regardless of their ordinal, until the entire fetch operation completes with SQL_SUCCESS or SQL_SUCCESS_WITH_INFO.
 
@@ -681,10 +703,6 @@ If the driver returns `SQL_DATA_AVAILABLE`, the application must not assume that
 Open Tables may support inserting or updating dynamic columns.
 
 To create/update dynamic columns, clients can specify column names outside of those returned in SQLColumns in the column list for an insert/update statement. An Insert or Update statement that specifies an unschematized column adds a dynamic column for that row in the table. Setting the value of a dynamic column to null removes that column from that row.
-
-### 3.9.6 Data Definition Extensions for Dynamic Columns
-
-Applications can create tables and types that support the presence of dynamic columns using the new [*ODBC-open-escape*](#3961-open-escape-clause) clause.
 
 ## 3.10 Structured Columns
 
