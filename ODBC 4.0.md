@@ -6,7 +6,7 @@ Table of Contents
 
 - [1 Overview](#1-overview)
 - [2 Compatibility with ODBC 3.x](#2-compatibility-with-odbc-3x)
--  - [2.1 ODBC 3.x Errata](#21-odbc-3x-errata)
+   - [2.1 ODBC 3.x Errata](#21-odbc-3x-errata)
 - [3 Design](#3-design)
    - [3.1 Private Drivers](#31-private-drivers)
    - [3.2 Web Authorization](#32-web-authorization)
@@ -521,23 +521,19 @@ Attempting to get or set this attribute for drivers that do not support schema i
 
 In ODBC 3.x, applications read large data values by placing them at the end of the select list and calling SQLGetData after all bound columns have been populated.
 
-Applications can efficiently retrieve large data values that appear in any order by setting the `StrLen_or_IndPtr`, especially for large values, nested collections, and structured columns, to a buffer containing `SQL_DATA_AT_FETCH`. The application is notified during the fetch operation when data-at-fetch columns are available to be retrieved via SQLGetData, or a nested statement handle for nested collections and structured columns.
+Applications can efficiently retrieve large data values (such as potentially large string or binary values, nested collections, and structured columns) that appear in any order by setting the [`SQL_DESC_DATA_AT_FETCH`](#361-sql_desc_data_at_fetch-descriptor-field) descriptor field to `SQL_TRUE`. The application is notified during the fetch operation when data-at-fetch columns are available to be retrieved via SQLGetData, or a nested statement handle for nested collections and structured columns.
 
 In order to be notified when an unbound column is available to be retrieved during the fetch operation:
 
 1. For each regularly bound column, an ODBC 4.0 application calls SQLBindCol (or equivalent SQLDescField/SQLDescRec), specifying the following:
     -   `ColumnNumber` is the number of the column to be bound
     -   `TargetType` is the type of the column
-    -   `TargetValuePtr` and `BufferLength` are the buffer and length for the bound value
-    -   `StrLen_or_IndPtr` is set to a buffer containing any value other than `SQL_DATA_AT_FETCH` (typically this will contain the indicator value from the previous row, and can be initialized by the client to `SQL_DATA_UNAVAILABLE`).
+    -   `TargetValuePtr`, `BufferLength`, and `StrLen_or_IndPtr` are the buffer, length and indicator for the bound value
+Binding a column automatically sets the `SQL_DESC_DATA_AT_FETCH` value to `SQL_FALSE`.
 
-2. For each column to be retrieved at fetch time, the application calls SQLBindCol (or equivalent SQLDescField/SQLDescRec), specifying the following:
-    -   `ColumnNumber` is the number of the column to be retrieved using SQLGetData/SQLGetNestedData
-    -   `TargetType` is the type of the column
-    -   `TargetValuePtr` and `BufferLength` are ignored
-    -   `StrLen_or_IndPtr` is set to a buffer containing `SQL_DATA_AT_FETCH`
-
-3.  App calls SQLFetch/SQLFetchScroll
+2. For each column to be retrieved at fetch time, the application calls SQLDescField, specifying `SQL_DESC_DATA_AT_FETCH` with a value of `SQL_TRUE`.  Setting `SQL_DESC_DATA_AT_FETCH` for a column automatically unbinds the column by setting the `TargetValuePtr` to null.
+ 
+3. App calls SQLFetch/SQLFetchScroll
     -   Driver begins populating the bindings
     -   Driver returns `SQL_DATA_AVAILABLE` return code from SQLFetch/SQLFetchScroll
         1. Calling SQLFetch or SQLFetchScroll in a data-available state results in a function sequence error. 
@@ -547,21 +543,29 @@ In order to be notified when an unbound column is available to be retrieved duri
     -   Driver returns the ordinal of the available column
     -   For rowset sizes greater than 1, the row for which the column is available can be determined through the `SQL_ATTR_ROWS_FETCHED_PTR` statement attribute. The client cannot assume that rows prior to the current value of `SQL_ATTR_ROWS_FETCHED_PTR` are complete until the entire fetch sequence has completed until the initial fetch or a subsequent call to SQLNextColumn returns a value other than `SQL_DATA_AVAILABLE`.
 
-5.  If rowset size is 1, the app can update the binding information for the column only, which is used in the next call to SQLFetch/SQLFetchScroll.
+5.  If rowset size is 1, the app can update the binding information for the current column only, which will used in the next call to SQLFetch/SQLFetchScroll.
 
-6.  App optionally retrieves the data by calling SQLGetData or a nested handle, as appropriate.
+6.  App typically retrieves the data by calling SQLGetData, or by reading data from the nested handle, as appropriate.
 
 7.  App calls [SQLNextColumn](#61-sqlnextcolumn) to continue fetching the current row
+    -   Any nested handles on the same statement are closed, unless [SQL_GD_CONCURRENT](#361-sql_gd_concurrent-bit-for-sql_getdata_extensions) is specified and rowset size is equal to 1 (in which case any nested handles are closed upon the next call to fetch or close on the parent statement handle.)
     -   Driver returns `SQL_DATA_AVAILABLE`, along with the ordinal of the next column available to be retrieved, if additional columns are available
     -   Driver returns `SQL_SUCCESS` or `SQL_SUCCESS_WITH_INFO` when all columns for which a binding has been specified have been retrieved. The application must not assume any bindings have been populated until SQLNextColumn returns `SQL_SUCCESS` or `SQL_SUCCESS_WITH_INFO`.
 
 8.  App can call SQLGetData, or retrieve nested data, for additional columns beyond the last bound column, or subject to the ordering constraints of the driver.
 
-### 3.6.1 `SQL_GD_CONCURRENT` bit for `SQL_GETDATA_EXTENSIONS`
+### 3.6.1 `SQL_DESC_DATA_AT_FETCH` descriptor field
+
+A new application row descriptor (ARD) field, `SQL_DESC_DATA_AT_FETCH`, is added to specify that a column is to be retrieved through a `SQL_DATA_AVAILABLE` state at fetch time.
+
+- `SQL_FALSE` (default) specifies that the driver will return data for the column directly to the application's buffer if a binding is specified
+- `SQL_TRUE` specifies that the driver will return SQL_DATA_AVAILABLE when reading the column
+
+### 3.6.2 `SQL_GD_CONCURRENT` bit for `SQL_GETDATA_EXTENSIONS`
 
 A new SQL GetData Extension, `SQL_GD_CONCURRENT`, is added. 
 
-If the driver reports `SQL_GD_CONCURRENT`, fetching partial data from one column (using SQLGetData) or on a nested statement handle does not affect the position or state of any other column or nested handle. If the driver specifies `SQL_GD_ANY_ORDER` and does not specify `SQL_GD_CONCURRENT`, calling SQLGetData or retrieving data from a nested handle resets the position of any columns previously fetched using SQLGetData to the beginning and closes the cursor (but does not automatically free the hstmt) of any previously fetched nested columns for this row.
+If the driver reports `SQL_GD_CONCURRENT`, and rowset size is 1, fetching partial data from one column (using SQLGetData) or on a nested statement handle does not affect the position or state of any other column or nested handle. If the driver specifies `SQL_GD_ANY_ORDER` and does not specify `SQL_GD_CONCURRENT`, calling SQLGetData or retrieving data from a nested handle resets the position of any columns previously fetched using SQLGetData to the beginning and closes the cursor (but does not automatically free the hstmt) of any previously fetched nested columns for this row.
 
 Note that SQL_GD_CONCURRENT does not imply that the driver supports multiple concurrent asynchronous requests associated with the same parent statement handle. The root statement handle defines the scope for concurrent asynchronous operations.
 
@@ -580,7 +584,7 @@ Variable typed columns used in expressions should first be cast to an appropriat
 
 As data is read for a row the IRD is updated to reflect the actual type information for the current row. Columns whose `SQL_DESC_TYPE` or `SQL_DESC_CONCISE_TYPE` descriptor fields indicate `SQL_VARIANT_TYPE` are updated to reflect the actual type of the data to be read.
 
-Depending on the value of [SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR](#3731-sql_attr_type_exception_behavior), if the descriptor is changed for a column the driver may return `SQL_METADATA_CHANGED`.
+Depending on the value of [`SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`](#3731-sql_attr_type_exception_behavior), if the descriptor is changed for a column the driver may return `SQL_METADATA_CHANGED`.
 
 The application can set fields in the ARD directly or through SQLBindCol, but only for the current column. Any changes to the descriptor record persistent for future uses of that descriptor.
 
@@ -654,7 +658,7 @@ Data sources with fixed schemas always return *False* for this value. Attempting
 
 If set to *True*, SQLFetch, SQLFetchScroll and SQL_NextColumn return `SQL_DATA_AVAILABLE` if new columns are discovered/added to the IRD while retrieving results.
 
-If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then bound columns in the ARD that don't specify `SQL_DATA_AT_FETCH` and don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, then only known columns are allowed in a select list and only known columns are returned when \* is specified.
+If `SQL_ATTR_DYNAMIC_COLUMNS` is true, then bound columns in the ARD that don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is false, then only known columns are allowed in a select list and only known columns are returned when \* is specified.
 
 Applications may change SQL_ATTR_DYNAMIC_COLUMNS from *True* to *False* at any time to ignore dynamic columns. Attempting to set `SQL_ATTR_DYNAMIC_COLUMNS` from *False* to *True* on a statement handle with an open cursor results in HY010, Function Sequence Error. 
 
@@ -682,7 +686,7 @@ If `SQL_ATTR_DYNAMIC_COLUMNS` is set to true, the driver can return dynamic colu
 
 If the driver encounters a dynamic (unschematized) column that does not exactly match any existing IRD records, the driver
 
-1.  Creates a new IRD record for the column; this becomes a new, unbound column in the result. The application must bind the column, or set the `str_len_or_indicator_ptr` to `SQL_DATA_AT_FETCH`, in order to retrieve the value in subsequent calls to SQLFetch. Once added to the IRD, dynamic columns become "known columns". If the type and length information changes on subsequent rows, the driver may return SQL_METADATA_CHANGED based on the [`SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR). Alternatively, the driver may create additional IRD records with the same name for dynamic columns of different types. Once added, the descriptor fields are a permanent part of the descriptor until it is freed.
+1.  Creates a new IRD record for the column; this becomes a new, unbound column in the result. The application must bind the column, or set the ['SQL_DESC_DATA_AT_FETCH'](#361-sql_desc_data_at_fetch-descriptor-field) descriptor field to `SQL_TRUE`, in order to retrieve the value in subsequent calls to SQLFetch. Once added to the IRD, dynamic columns become "known columns". If the type and length information changes on subsequent rows, the driver may return SQL_METADATA_CHANGED based on the [`SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR). Alternatively, the driver may create additional IRD records with the same name for dynamic columns of different types. Once added, the descriptor fields are a permanent part of the descriptor until it is freed.
 
 2.  Returns `SQL_DATA_AVAILABLE` from SQLFetch or SQLFetchScroll
 
@@ -694,7 +698,7 @@ If the driver encounters a dynamic (unschematized) column that does not exactly 
 
     3.  Application calls SQLNextColumn to continue fetching the current row.
 
-Once discovered, dynamic columns can be bound like any other column. If a bound dynamic column whose `str_len_or_indicator_ptr` is not set to `SQL_DATA_AT_FETCH` does not exist for a row, the driver sets its `str_len_or_indicator_ptr` to `SQL_DATA_UNAVAILABLE`. If `str_len_or_indicator_ptr` is null for such a bound dynamic column that doesn't exist for the current row, SQLFetch, SQLFetchScroll, or SQLNextColumn returns an error (22002, Indicator variable required but not supplied).
+Once discovered, dynamic columns can be bound like any other column. If a bound dynamic column whose does not exist for a row, the driver sets its `str_len_or_indicator_ptr` to `SQL_DATA_UNAVAILABLE`. If `str_len_or_indicator_ptr` is null for such a bound dynamic column that doesn't exist for the current row, SQLFetch, SQLFetchScroll, or SQLNextColumn returns an error (22002, Indicator variable required but not supplied).
 
 If the driver returns `SQL_DATA_AVAILABLE`, the application must not assume that any bound columns have been populated, regardless of their ordinal, until the entire fetch operation completes with SQL_SUCCESS or SQL_SUCCESS_WITH_INFO.
 
@@ -715,8 +719,6 @@ The ability to report structured columns leverages the extensible type facility 
 Structured columns may have a named type, whose structure can be described in [SQLStructuredTypeColumns](#64-sqlstructuredtypecolumns).
 
 Structured columns with no backing type can be described by passing a path as the `TABLE_NAME` to SQLColumns, or the `UDT_NAME` to SQLStructuredTypeColumns. The dot-separated path starts with the table or named structural type name in which the anonymous type is used, can traverse an arbitrary number of `SQL_ROW` columns, and must terminate on a column whose type is `SQL_ROW`. Any identifiers in the path containing the dot character (.) must be quoted using the appropriate identifier quote character.
-
-
 
 The following columns are added, in order, to the set of columns returned by SQLColumns when requested by ODBC 4.0 or greater applications:
 
@@ -755,7 +757,7 @@ would return a result with two columns; one named “EmpID” containing the emp
 > Select EmpID, ROW(Region, Country) as Address
 > from Employee
 
-Two structured values are comparable if, and only if, they have the same structural members. For a comparison operation *op* between structured values *SV1* and *SV2*, the expression *SV1 op SV2* is considered true if, for every member *m1* in *SV1* and corresponding member *m2* in *SV2*, *m1 op m2* is true.
+Two structured values are comparable if, and only if, they have the same structural members. For two structured values *SV1* and *SV2*. *SV1 = SV2* is true if every member *m1* in *SV1* equals the corresponding member *m2* in *SV2*, otherwise *SV1 = SV2* is false. *SV1 < SV2* is true if *SV1 != SV2* and every member *m1* in *SV1* is less than or equal to the corresponding member *m2* in *SV2*, otherwise *SV1 < SV2* is false.
 
 It is generally not possible to order by structured values, although it is possible to order by primitive members of a structural value.
 
@@ -769,7 +771,7 @@ would return a result with three columns; one named “EmpID” containing the e
 
 ### 3.10.3 Response Extensions for Structured Columns
 
-To retrieve structured result columns, the client binds the column as [SQL_DATA_AT_FETCH](#36-getting-data-during-fetch). When the driver returns SQL_DATA_AVAILABLE for the structured column, the client calls [SQLGetNestedHandle](#62-sqlgetnestedhandle) to obtain a statement handle (HSTMT) on which the nested results can be described, bound, and fetched using the appropriate standard ODBC function calls. Structural columns not bound as SQL_DATA_AT_FETCH are not returned by the driver. Attempting to return a structural value for a column bound other than as SQL_DATA_AT_FETCH results in a type exception, which may be handled according to the value of [SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR](#3731-sql_attr_type_exception_behavior).
+To retrieve structured result columns, the client binds the column as [`SQL_DATA_AT_FETCH`](#36-getting-data-during-fetch). When the driver returns SQL_DATA_AVAILABLE for the structured column, the client calls [SQLGetNestedHandle](#62-sqlgetnestedhandle) to obtain a statement handle (HSTMT) on which the nested results can be described, bound, and fetched using the appropriate standard ODBC function calls. Structural columns not bound as SQL_DATA_AT_FETCH are not returned by the driver. Attempting to return a structural value for a column bound other than as SQL_DATA_AT_FETCH results in a type exception, which may be handled according to the value of [SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR](#3731-sql_attr_type_exception_behavior).
 
 #### 3.10.3.1 Result Descriptors for structured columns
 
@@ -1107,7 +1109,7 @@ The driver manager returns `HY010`, Function sequence error, from SQLSetPos if t
 
 ### 6.1.1 Usage
 
-While fetching a row that contains a column whose `str_len_or_indicator_ptr` contains `SQL_DATA_AT_FETCH`, when reading a dynamic column while `SQL_ATTR_DYNAMIC_COLUMNS` is true, or when encountering a length or type exception, depending on the value of [`SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR`](#381-SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR) and [`SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR), respectively, the driver returns `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`, and the application calls SQLNextColumn in order to determine the ordinal of the next available column to be read.
+While fetching a row that contains a column whose `SQL_DESC_DATA_AT_FETCH` descriptor is set to `SQL_TRUE`, when reading a dynamic column while `SQL_ATTR_DYNAMIC_COLUMNS` is true, or when encountering a length or type exception, depending on the value of [`SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR`](#381-SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR) and [`SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR), respectively, the driver returns `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`, and the application calls SQLNextColumn in order to determine the ordinal of the next available column to be read.
 
 The application can use the returned `Col_or_Param_Num` to retrieve information about the available column or parameter, but must not change descriptor information relative to the descriptor header record or any descriptor records not associated with the returned `Col_or_Param_Num`.
 
@@ -1126,7 +1128,7 @@ SQLGetNestedHandle is called in to retrieve a handle for reading or writing stru
       SQLUSMALLINT Col_or_Param_Num,
       SQLHSTMT* OutputChildStatementHandle);
 
-SQLGetNestedHandle can be called for columns containing nested collections or structured columns once the ParentStatementHandle is in a prepared or executed state. Fetching data from the nested handle is subject to the same constraints as SQLGetData.
+SQLGetNestedHandle can be called for columns containing nested collections or structured columns once the ParentStatementHandle is in a prepared or executed state. The nested handle can be used to fetch data once the ParentStatementHandle is in the executed state and the driver returns `SQL_DATA_AVAILABLE` for the particular column, and may allow fetching data at other times depending upon `SQL_GETDATA_EXTENSIONS`.
 
 The Driver Manager returns HY001 under the following condition:
 
@@ -1156,15 +1158,15 @@ The driver manager returns IM001, Driver does not support this function, under t
 
 Applications call SQLGetNestedHandle in order obtain a nested statement handle representing rows or output parameters whose SQL_DESC_TYPE and SQL_DESC_CONCISE_TYPE descriptor fields indicate "SQL_UDT", "SQL_ROW", "SQL_ARRAY", or "SQL_MULTISET".
 
-Nested statement handles are in the prepared state and can be used to describe results once the parent statement handle is in the prepared or executed state. Applications can fetch data from the nested statement handle once SQLNextColumn returns the ordinal associated with the nested statement.
+Nested statement handles can be used to describe results once the parent statement handle is in the prepared or executed state. Applications can fetch data from the nested statement handle once the driver returns `SQL_DATA_AVAILABLE` for the particular column, and may allow fetching data at other times depending upon `SQL_GETDATA_EXTENSIONS`.
 
 Fetching results from a handle returned by SQLGetNestedHandle has the same sequencing restrictions as SQLGetData. Drivers report relaxed sequencing rules for both SQLGetData and fetching results from a nested statement handle through `SQL_GET_DATA_EXTENSIONS`. Unless `SQL_GET_DATA_EXTENSIONS` specifies `SQL_GD_ANY_ORDER`, Fetch/GetData must only be called on the handle associated with the most recent call to SQLNextColumn.
 
 After calling SQLGetNestedHandle, the application can use the returned ChildStatementHandle to describe and fetch results for that nested content.
 
-Applications SHOULD call SQLCloseCursor on the nested handle when finished reading results.
+Calling SQLCloseCursor on the nested handle closes the child cursor for the current parent row.
 
-Multiple calls to SQLGetNestedHandle for the same ParentStatementHandle and Col_or_Param_Num return the same ChildStatementHandle (including any added/modified descriptor fields) unless that handle has been explicitly freed, in which case the returned Statement Handle contains only the default set of columns and types.
+Multiple calls to SQLGetNestedHandle for the same `ParentStatementHandle` and `Col_or_Param_Num` return the same ChildStatementHandle (including any added/modified descriptor fields) unless that handle has been explicitly freed, in which case the returned Statement Handle contains only the default set of columns and types.
 
 Unless the [SQL_GD_CONCURRENT](#361-SQL_GD_CONCURRENT-bit-for-sql_getdata_extensions) bit within SQL_GETDATA_EXTENSIONS is specified, a subsequent call to retrieve data using SQLGetData, SQLFetch, SQLFetchScroll, or SQLNextColumn on the parent handle or a different nested statement handle implicitly closes the statement handle. If `SQL_GD_CONCURRENT` is specified, a subsequent call to retrieve data on the child statement handle does not affect any other statement handle.
 
