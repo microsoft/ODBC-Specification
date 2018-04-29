@@ -390,7 +390,7 @@ If multiple rows are specified in an INSERT INTO...VALUES statement, or an array
 
 The driver may limit the columns in the select-list to include only the best row id columns returned by SQLSpecialColumns, as specified in the `SQL_RETURN_ESCAPE_CLAUSE` *InfoType*.
 
-If the application requests columns that don't exist in the row and [`SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR`](#391-SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR) is *SQL\_DCB\_IGNORE*, or the driver only supports returning row id columns and the client specifies non-row id columns in the *select-list*, the driver returns `42S22` Column not found.
+If the application requests columns that don't exist in the row and [`SQL_ATTR_DYNAMIC_COLUMNS`](#391-SQL_ATTR_DYNAMIC_COLUMNS) is *false*, or the driver only supports returning row id columns and the client specifies non-row id columns in the *select-list*, the driver returns `42S22` Column not found.
 
 Drivers advertise support for this escape clause through the `SQL_RETURN_ESCAPE_CLAUSE` *InfoType* whose value is a bitmask made up of the following values.
 
@@ -679,29 +679,27 @@ Dynamic columns are discovered by the application when retrieving results.
 
 A table may be entirely unschematized (in which case SQLColumns returns an empty result set) or partially schematized (in which case SQLColumns returns the columns that are known and consistent across rows).
 
-### 3.9.1 `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR` Statement Attribute
+### 3.9.1 `SQL_ATTR_DYNAMIC_COLUMNS` Statement Attribute
 
-The new `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR` statement attribute controls whether or not additional, dynamic columns may be returned for unbounded select results.
+The new `SQL_ATTR_DYNAMIC_COLUMNS` statement attribute controls whether or not additional, dynamic columns may be returned for unbounded select results.
+ 
+The default for this statement attribute is *False*.
 
-* **SQL\_DCB\_IGNORE** – (Default) Dynamic columns are ignored.
-* **SQL\_DCB\_REUSE\_BINDINGS** – Dynamic columns are added to the descriptor as they are discovered. Once discovered, the same descriptor record number is used for the same dynamic column, and the type information is updated as appropriate.
-* **SQL\_DCB\_OPEN\_BINDINGS** – Dynamic columns are added to the descriptor as they are discovered. New descriptor records MAY be created if the same dynamic column name is discovered with a different type.
+Data sources with fixed schemas always return *False* for this value. Attempting to set this value for such a data source returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02, Option Value Changed, and reading this value will continue to return *False*.
 
-Data sources with fixed schemas always return *SQL\_DCB\_IGNORE* for this value. Attempting to set this value for such a data source returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02, Option Value Changed, and reading this value will continue to return *SQL\_DCB\_IGNORE*.
+If set to *True*, SQLFetch, SQLFetchScroll and SQL_NextColumn return `SQL_DATA_AVAILABLE` if new columns are discovered/added to the IRD while retrieving results.
 
-If set to *SQL\_DCB\_REUSE\_BINDINGS* or *SQL\_DCB\_OPEN\_BINDINGS*, SQLFetch, SQLFetchScroll and SQL_NextColumn return `SQL_DATA_AVAILABLE` if new columns are discovered/added to the IRD while retrieving results.
+If `SQL_ATTR_DYNAMIC_COLUMNS` is *True*, then bound columns in the ARD that don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMNS` is *False*, then only known columns are allowed in a select list and only known columns are returned when \* is specified.
 
-If `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR` is not *SQL\_DCB\_IGNORE*, then bound columns in the ARD that don’t apply to the current row have their `len_or_ind_ptr` set to `SQL_DATA_UNAVAILABLE`. If `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR` is *SQL\_DCB\_IGNORE*, then only known columns are allowed in a select list and only known columns are returned when \* is specified.
-
-Applications may change `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR` from to *SQL\_DCB\_IGNORE* at any time to ignore dynamic columns. Attempting to change `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR` to *SQL\_DCB\_REUSE\_BINDINGS* or *SQL\_DCB\_OPEN\_BINDINGS* on a statement handle with an open cursor results in HY010, Function Sequence Error (raised by the Driver Manager).
+Applications may change `SQL_ATTR_DYNAMIC_COLUMNS` from to *True* to *False* at any time to ignore dynamic columns. Attempting to change `SQL_ATTR_DYNAMIC_COLUMNS` from *False* to *True* on a statement handle with an open cursor results in HY010, Function Sequence Error (raised by the Driver Manager).
 
 ### 3.9.2 Schema Extensions for Dynamic Columns
 
-If [`SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR`](#391-SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR) is not *SQL\_DCB\_IGNORE*, tables that support properties not defined in SQLColumns are returned from SQLTables using the new `“OPEN TABLE”` table type. If `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR` is *SQL\_DCB\_IGNORE*, such tables are returned with a table type of `"TABLE"`.
+If [`SQL_ATTR_DYNAMIC_COLUMNS`](#391-SQL_ATTR_DYNAMIC_COLUMNS) is *True*, tables that support properties not defined in SQLColumns are returned from SQLTables using the new `“OPEN TABLE”` table type. If `SQL_ATTR_DYNAMIC_COLUMNS` is *False*, such tables are returned with a table type of `"TABLE"`.
 
 ### 3.9.3 Query Extensions for Dynamic Columns
 
-A fully explicit select-list (i.e., anything that doesn't contain \*) imposes a structure on the results. Such results only contain the specified columns. When `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR` is not *SQL\_DCB\_IGNORE*, a select list that includes \* also includes any dynamic (unschematized) columns. Dynamic columns must be explicitly included in the select-list in order to be referenced by name or ordinal in the order-by clause.
+A fully explicit select-list (i.e., anything that doesn't contain \*) imposes a structure on the results. Such results only contain the specified columns. When `SQL_ATTR_DYNAMIC_COLUMNS` is *True*, a select list that includes \* also includes any dynamic (unschematized) columns. Dynamic columns must be explicitly included in the select-list in order to be referenced by name or ordinal in the order-by clause.
 
 Structured columns specified in a select list implicitly select all columns (declared and dynamic) of the structured type.
 
@@ -715,11 +713,11 @@ Result descriptor functions (SQLNumResultCols, SQLDescribeCol, SQLColAttribute(s
 
 #### 3.9.4.1 Retrieving Dynamic Columns
 
-If `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR` is set to a value other than *SQL\_DCB\_IGNORE*, the driver can return dynamic columns as data-at-fetch columns when fetching a row.
+If `SQL_ATTR_DYNAMIC_COLUMNS` is set to *True*, the driver can return dynamic columns as data-at-fetch columns when fetching a row.
 
-If the driver encounters a dynamic (unschematized) column that does not exactly match any existing IRD records, the driver
+If the driver encounters a dynamic (unschematized) column that does not match the name of an existing unschematized IRD record, the driver:
 
-1.  Creates a new IRD record for the column; this becomes a new, unbound column in the result. The application must bind the column, or set the [`SQL_DESC_DATA_AT_FETCH`](#361-sql_desc_data_at_fetch-descriptor-field) descriptor field to `SQL_TRUE`, in order to retrieve the value in subsequent calls to SQLFetch. Once added to the IRD, dynamic columns become "known columns". If the type and length information changes on subsequent rows, the driver may return SQL_METADATA_CHANGED based on the [`SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR). Alternatively, the driver may create additional IRD records with the same name for dynamic columns of different types. Once added, the descriptor fields are a permanent part of the descriptor until it is freed.
+1.  Creates a new IRD record for the column; this becomes a new, unbound column in the result. The application must bind the column, or set the [`SQL_DESC_DATA_AT_FETCH`](#361-sql_desc_data_at_fetch-descriptor-field) descriptor field to `SQL_TRUE`, in order to retrieve the value in subsequent calls to SQLFetch. Once added to the IRD, dynamic columns become "known columns". If the type and length information changes on subsequent rows, the driver should use the same IRD record and return SQL_METADATA_CHANGED based on the [`SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR). Note, however, that applications must continue to be prepared to deal with multiple IRD records with the same name. Once added, the descriptor fields are a permanent part of the descriptor until it is freed.
 
 2.  Returns `SQL_DATA_AVAILABLE` from SQLFetch or SQLFetchScroll
 
@@ -1102,7 +1100,7 @@ In order to report support for ODBC 4.0, a driver:
 2. Must support data-at-fetch columns, and SQLNextColumn for retrieving the currently available column
 3. Must support `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` to control how binary and string overflows are handled
 4. Must support `SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR` to control how type exceptions are handled
-5. Must support a `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR` of *SQL\_DCB\_IGNORE* to ignore dynamic columns
+5. Must support a `SQL_ATTR_DYNAMIC_COLUMNS` value of *False* to ignore dynamic columns
 6. If `SQL_ATTR_ODBC_VERSION` environment attribute indicates an ODBC 2.x or 3.x version: 
 	1. Must not utilize `SQL_VARIANT`, `SQL_ROW`, `SQL_UDT`, `SQL_ARRAY`, or `SQL_MULTISET` in schema or descriptor functions
 
@@ -1121,7 +1119,7 @@ The ODBC 4.0 Driver Manager will map the following InfoTypes and attributes for 
 | **InfoType/Attribute**               | **Behavior**                                               |
 |--------------------------------------|------------------------------------------------------------|
 | `SQL_SCHEMA_INFERENCE`               | If not supported by the driver, SQLGetInfo returns `FALSE` |
-| `SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR`   | If not supported by the driver, SQLGetStmtAttr returns *SQL\_DCB\_IGNORE* and SQLSetStmtAttr  returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02.  |
+| `SQL_ATTR_DYNAMIC_COLUMNS`           | If not supported by the driver, SQLGetStmtAttr returns *False* and SQLSetStmtAttr  returns `SQL_SUCCESS_WITH_INFO` with a diagnostic code of 01S02.  |
 | `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` | If not supported by the driver, SQLGetStmtAttr returns `SQL_LE_CONTINUE` and SQLSetStmtAttr with a value other than `SQL_LE_CONTINUE` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented |
 | `SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`   | If not supported by the driver, SQLGetStmtAttr returns SQL_TE_ERROR and SQLSetStmtAttr with a value other than `SQL_TE_ERROR` returns `SQL_ERROR` with a diagnostic code of `HYC00`, Optional feature not implemented  |
 
@@ -1152,7 +1150,7 @@ The driver manager returns `HY010`, Function sequence error, from SQLSetPos if t
 
 ### 6.1.1 Usage
 
-While fetching a row that contains a column whose `SQL_DESC_DATA_AT_FETCH` descriptor is set to `SQL_TRUE`, when reading a dynamic column while [`SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR`](#391-SQL_ATTR_DYNAMIC_COLUMN_BEHAVIOR) is not *SQL\_DCB\_IGNORE*, or when encountering a length or type exception, depending on the value of [`SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR`](#381-SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR) and [`SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR), respectively, the driver returns `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`, and the application calls SQLNextColumn in order to determine the ordinal of the next available column to be read.
+While fetching a row that contains a column whose `SQL_DESC_DATA_AT_FETCH` descriptor is set to `SQL_TRUE`, when reading a dynamic column while [`SQL_ATTR_DYNAMIC_COLUMNS`](#391-SQL_ATTR_DYNAMIC_COLUMNS) is *True*, or when encountering a length or type exception, depending on the value of [`SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR`](#381-SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR) and [`SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR`](#3731-SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR), respectively, the driver returns `SQL_DATA_AVAILABLE`, `SQL_METADATA_CHANGED`, or `SQL_MORE_DATA`, and the application calls SQLNextColumn in order to determine the ordinal of the next available column to be read.
 
 The application can use the returned `Col_or_Param_Num` to retrieve information about the available column or parameter, but must not change descriptor information relative to the descriptor header record or any descriptor records not associated with the returned `Col_or_Param_Num`.
 
