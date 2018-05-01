@@ -19,12 +19,14 @@ Table of Contents
    - [3.9 Dynamic Columns](#39-dynamic-columns)
    - [3.10 Structured Columns](#310-structured-columns)
    - [3.11 Collection-valued Columns](#311-collection-valued-columns)
+   - [3.12 New SQL C types](#312-new-sql-c-types)
 - [4 Change Tracking](#4-change-tracking)
 - [5 Compatibility](#5-compatibility)
 	- [5.1 ODBC 3.x Clients](#51-odbc-3x-clients)
 	- [5.2 ODBC 3.x Drivers](#52-odbc-3x-drivers)
 	- [5.3 ODBC 4.0 Drivers](#53-odbc-40-drivers)
-	- [5.4 ODBC 4.0 Driver Manager](#54-odbc-40-driver-manager)
+	- [5.4 ODBC 4.0 Clients](#54-odbc-40-clients)
+	- [5.5 ODBC 4.0 Driver Manager](#55-odbc-40-driver-manager)
 - [6 New Functions](#6-new-functions)
 	- [6.1 SQLNextColumn](#61-sqlnextcolumn)
 	- [6.2 SQLGetNestedHandle](#62-sqlgetnestedhandle)
@@ -1067,6 +1069,47 @@ To pass an array-valued parameter at execute time, the application:
 9.  Application calls SQLParamData to indicate it has sent all of the data for the parameter
     -   Driver returns `SQL_NEED_DATA` if there are any remaining data-at-execute parameters.
 
+# 3.12 New ODBC C typedefs
+New C-language typedefs are added for binding time values with fractional seconds.
+
+# 3.12.1 New `SQL_C_TYPE_TIME_WITH_FRACTIONAL_SECONDS`
+A new `SQL_C_TYPE_TIME_WITH_FRACTIONAL_SECONDS` is added for binding to a c time type that includes fractional seconds.
+
+A corresponding new struct is added for returning time values with fractional seconds:
+
+	typedef struct tagTIME_WITH_FRACTIONAL_SECONDS_STRUCT
+	{
+        SQLUSMALLINT   hour;
+        SQLUSMALLINT   minute;
+        SQLUSMALLINT   second;
+        SQLUINTEGER    fraction;
+	} TIME_WITH_FRACTIONAL_SECONDS_STRUCT;
+
+4.x drivers must support binding to either the `SQL_C_TYPE_TIME` (without fractional seconds) or `SQL_C_TYPE_TIME_WITH_FRACTIONAL_SECONDS` (with fractional seconds).  4.0 clients should not specify 
+`SQL_C_TYPE_TIME_WITH_FRACTIONAL_SECONDS` against a 3.x driver.
+
+If an application specifies `SQL_C_DEFAULT` for a time value, then the driver must assume `SQL_C_TYPE_TIME` and not include fractional seconds.
+
+# 3.12.2 New `SQL_C_TIME_WITH_TIMEZONE_WITH_FRACTIONAL_SECONDS`
+A new `SQL_C_TYPE_TIME_WITH_TIMEZONE_WITH_FRACTIONAL_SECONDS` is added for binding to a c time with timezone type that includes fractional seconds.
+
+A new struct is added for returning time with timezone values with fractional seconds:
+
+	typedef struct tagTIME_WITH_TIMEZONE_FRACTIONAL_SECONDS_STRUCT
+	{
+		SQLUSMALLINT   hour;
+		SQLUSMALLINT   minute;
+		SQLUSMALLINT   second;
+        SQLUINTEGER    fraction;
+		SQLSMALLINT    timezone_hours;
+		SQLUSMALLINT   timezone_minutes;
+	} TIME_WITH_TIMEZONE_FRACTIONAL_SECONDS_STRUCT;
+
+4.x drivers must support binding to either the `SQL_C_TYPE_TIME_WITH_TIMEZONE` (without fractional seconds) or `SQL_C_TYPE_TIME_WITH_TIMEZONE_WITH_FRACTIONAL_SECONDS` (with fractional seconds).  4.0 clients should not specify 
+`SQL_C_TYPE_TIME_WITH_TIMEZONE_WITH_FRACTIONAL_SECONDS` against a 3.x driver.
+
+If an application specifies `SQL_C_DEFAULT` for a time value, then the driver must assume `SQL_C_TYPE_TIME_WITH_TIMEZONE` and not include fractional seconds.
+
 # 4 Change Tracking
 
 ##NOTE: This section of the specification is in a very early form; it is incomplete and subject to change or removal.
@@ -1107,7 +1150,10 @@ The Driver Manager raises `IM001`, Driver does not support this function, if a c
 ## 5.2 ODBC 3.x Drivers
 ODBC 3.x drivers can support ODBC 4.0 escape clauses, connection keywords, infotypes, and attributes, as well as added columns to the catalog functions, without reporting ODBC 4.0 support, but must not utilize `SQL_VARIANT`, `SQL_ROW`, `SQL_UDT`, `SQL_ARRAY`, or `SQL_MULTISET` data types in schema functions or descriptor functions.
 
-## 5.3 ODBC 4.0 Drivers
+## 5.3 ODBC 4.0 Clients
+ODBC 4.0 Clients must not utilize the new `SQL_C_TYPE_TIME_WITH_FRACTIONAL_SECONDS` or `SQL_C_TYPE_TIME_WITH_TIMEZONE_WITH_FRACTIONAL_SECONDS` types.
+
+## 5.4 ODBC 4.0 Drivers
 In order to report support for ODBC 4.0, a driver:
 
 1. Must return `SQL_OV_ODBC4` from SQLGetInfo with `SQL_ODBC_DRIVER_VERSION` fInfoType
@@ -1115,19 +1161,21 @@ In order to report support for ODBC 4.0, a driver:
 3. Must support `SQL_ATTR_LENGTH_EXCEPTION_BEHAVIOR` to control how binary and string overflows are handled
 4. Must support `SQL_ATTR_TYPE_EXCEPTION_BEHAVIOR` to control how type exceptions are handled
 5. Must support a `SQL_ATTR_DYNAMIC_COLUMNS` value of *False* to ignore dynamic columns
-6. If `SQL_ATTR_ODBC_VERSION` environment attribute indicates an ODBC 2.x or 3.x version: 
+6. Must support binding `SQL_TIME` values to either the `SQL_C_TYPE_TIME` (without fractional seconds) or `SQL_C_TYPE_TIME_WITH_FRACTIONAL_SECONDS` (with fractional seconds)
+7. Must support binding `SQL_TIME_WITH_TIMEZONE` values to either the `SQL_C_TYPE_TIME_WITH_TIMEZONE` (without fractional seconds) or `SQL_C_TYPE_TIME_WITH_TIMEZONE_WITH_FRACTIONAL_SECONDS` (with fractional seconds).
+7. If `SQL_ATTR_ODBC_VERSION` environment attribute indicates an ODBC 2.x or 3.x version: 
 	1. Must not utilize `SQL_VARIANT`, `SQL_ROW`, `SQL_UDT`, `SQL_ARRAY`, or `SQL_MULTISET` in schema or descriptor functions
 
 In addition, if the driver supports `SQL_ROW`, `SQL_UDT`, `SQL_ARRAY`, or `SQL_MULTISET` columns, it must:
 
-7. Support SQLGetNestedHandle, for retrieving a handle to read or write the nested value
+8. Support SQLGetNestedHandle, for retrieving a handle to read or write the nested value
 
 In addition, if the driver supports `SQL_UDT`, it must:
 
-8. Support SQLStructuredTypes
-9. Support SQLStructuredTypeColumns
+9. Support SQLStructuredTypes
+10. Support SQLStructuredTypeColumns
 
-## 5.4 ODBC 4.0 Driver Manager
+## 5.5 ODBC 4.0 Driver Manager
 The ODBC 4.0 Driver Manager will map the following InfoTypes and attributes for 2.x and 3.x drivers:
 
 | **InfoType/Attribute**               | **Behavior**                                               |
