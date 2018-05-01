@@ -69,6 +69,9 @@ The current ODBC Specification states the following:
 
 In this context, "fixed-length data" refers to "non-character or binary data". As described in "Retrieving Variable-Length Data In Parts", SQLGetData can be used to retrieve any character or binary data in pieces, and drivers should always respect BufferLength when writing string or binary data.
 
+## 2.1.2 Use of Substitution Character
+Drivers should use a substitution character (HEX 1A), rather than raise an exception, if a character is not available in the target codepage. Clients should be aware of this behavior, for example, when attempting to round-trip values.
+
 # 3 Design
 
 ODBC 4.0 is extended to support common features across all types of data sources, as well as specific new features to support new schema concepts.
