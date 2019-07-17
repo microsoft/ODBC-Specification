@@ -7,7 +7,7 @@ Microsoft ODBC version 4.0 is a new version of ODBC for modern data sources that
  * Private drivers
  * Additional capability reporting
  * Language extensions through additional SQL Escape Clauses
- *	Semi-structured data – Tables whose schema may not be defined or may change on a row-by-row basis
+ * Semi-structured data – Tables whose schema may not be defined or may change on a row-by-row basis
  * Hierarchical Data – Data with nested structure (structured fields, lists)
  * Web Authentication model
 
