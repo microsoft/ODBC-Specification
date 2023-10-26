@@ -57,7 +57,7 @@ The convenience to existing clients of representing hierarchical data through a 
 For more information on compatibility, see [Section 5, Compatibility](#5-compatibility)
 
 # 2.1 ODBC 3.x Errata
-The following errata are not intended to describe new functionality but to clarify apply to clarify existing expected ODBC behavior.
+The following errata are not intended to describe new functionality but to clarify existing expected ODBC behavior.
 
 ## 2.1.1 Types of Data Supported by SQLGetData
 While the current ODBC Specification calls out the use of *TargetType* for specifying the type of data to be retrieved in SQLGetData, which may differ from the type in the APD or ARD, it is not clear that, when retrieving string or binary data in parts, the same C data type should be specified for each part. 
